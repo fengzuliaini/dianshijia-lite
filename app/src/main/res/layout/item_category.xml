@@ -9,6 +9,5 @@
     android:textSize="20sp"
     android:textColor="@color/text_normal"
     android:background="@drawable/selector_item"
-    android:focusable="true"
     android:singleLine="true"
     android:ellipsize="end" />
