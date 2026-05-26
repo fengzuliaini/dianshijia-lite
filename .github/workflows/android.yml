@@ -19,6 +19,12 @@ jobs:
       run: |
         echo "JAVA_HOME=$JAVA_HOME_11_X64" >> $GITHUB_ENV
         echo "$JAVA_HOME_11_X64/bin" >> $GITHUB_PATH
+ 
+    - name: Download and set up Gradle 7.4
+      run: |
+        wget -q https://services.gradle.org/distributions/gradle-7.4-bin.zip
+        unzip -q gradle-7.4-bin.zip
+        echo "$GITHUB_WORKSPACE/gradle-7.4/bin" >> $GITHUB_PATH
 
     - name: Build with Gradle
       run: gradle assembleDebug --stacktrace
