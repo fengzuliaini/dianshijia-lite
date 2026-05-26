@@ -1341,6 +1341,20 @@ public class MainActivity extends AppCompatActivity {
             }
         }
 
+        private String rewriteHttpsUrlsInM3u8(String content, int localPort) {
+            java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("https://[^\\s#]+");
+            java.util.regex.Matcher matcher = pattern.matcher(content);
+            StringBuffer sb = new StringBuffer();
+            while (matcher.find()) {
+                String originalUrl = matcher.group();
+                String encodedUrl = android.net.Uri.encode(originalUrl);
+                String proxyUrl = "http://127.0.0.1:" + localPort + "/proxy?url=" + encodedUrl;
+                matcher.appendReplacement(sb, java.util.regex.Matcher.quoteReplacement(proxyUrl));
+            }
+            matcher.appendTail(sb);
+            return sb.toString();
+        }
+
         private void handleRequest(java.net.Socket clientSocket) {
             java.io.BufferedReader in = null;
             java.io.OutputStream out = null;
@@ -1374,27 +1388,50 @@ public class MainActivity extends AppCompatActivity {
                 String statusLine = "HTTP/1.1 " + response.code() + " " + response.message() + "\r\n";
                 out.write(statusLine.getBytes());
 
+                okhttp3.MediaType contentType = null;
                 if (response.body() != null) {
-                    okhttp3.MediaType contentType = response.body().contentType();
+                    contentType = response.body().contentType();
+                }
+
+                // 智能判定是否是 HLS (M3U8) 索引流
+                boolean isM3u8 = targetUrl.contains(".m3u8") || 
+                                 (contentType != null && (contentType.toString().contains("mpegurl") || contentType.toString().contains("mpegURL")));
+
+                if (isM3u8 && response.body() != null) {
+                    // 读取 M3U8 的全部文本
+                    String m3u8Content = response.body().string();
+                    // 核心爆改：将其中所有的绝对路径 HTTPS 切片地址重写为本地 HTTP 代理地址，全量接管二级拉流
+                    String rewrittenContent = rewriteHttpsUrlsInM3u8(m3u8Content, port);
+                    
+                    byte[] m3u8Bytes = rewrittenContent.getBytes("UTF-8");
+                    out.write(("Content-Type: " + (contentType != null ? contentType.toString() : "application/vnd.apple.mpegurl") + "\r\n").getBytes());
+                    out.write(("Content-Length: " + m3u8Bytes.length + "\r\n").getBytes());
+                    out.write("\r\n".getBytes());
+                    out.write(m3u8Bytes);
+                    out.flush();
+                } else {
+                    // 视频 TS 分片或普通媒体二进制流，以极速、零内存占用的二进制 Pipe 方式回吐数据
                     if (contentType != null) {
                         out.write(("Content-Type: " + contentType.toString() + "\r\n").getBytes());
                     }
-                    long contentLength = response.body().contentLength();
-                    if (contentLength >= 0) {
-                        out.write(("Content-Length: " + contentLength + "\r\n").getBytes());
+                    if (response.body() != null) {
+                        long contentLength = response.body().contentLength();
+                        if (contentLength >= 0) {
+                            out.write(("Content-Length: " + contentLength + "\r\n").getBytes());
+                        }
                     }
-                }
-                out.write("\r\n".getBytes());
-                out.flush();
-
-                if (response.body() != null) {
-                    java.io.InputStream responseStream = response.body().byteStream();
-                    byte[] buffer = new byte[8192];
-                    int bytesRead;
-                    while ((bytesRead = responseStream.read(buffer)) != -1) {
-                        out.write(buffer, 0, bytesRead);
-                    }
+                    out.write("\r\n".getBytes());
                     out.flush();
+
+                    if (response.body() != null) {
+                        java.io.InputStream responseStream = response.body().byteStream();
+                        byte[] buffer = new byte[8192];
+                        int bytesRead;
+                        while ((bytesRead = responseStream.read(buffer)) != -1) {
+                            out.write(buffer, 0, bytesRead);
+                        }
+                        out.flush();
+                    }
                 }
                 response.close();
 
