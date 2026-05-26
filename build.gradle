@@ -9,12 +9,7 @@ buildscript {
     }
 }
 
-allprojects {
-    repositories {
-        google()
-        mavenCentral()
-    }
-}
+// 移除与 settings.gradle 中 dependencyResolutionManagement 冲突的 allprojects 仓库声明
 
 task clean(type: Delete) {
     delete rootProject.buildDir
