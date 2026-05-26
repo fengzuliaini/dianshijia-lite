@@ -99,6 +99,7 @@ public class MainActivity extends AppCompatActivity {
     private CatchupAdapter catchupAdapter;
 
     // 状态控制记录
+    private boolean isTvDevice = false;
     private boolean isSidebarShowing = false;
     private boolean isCatchupMode = false; // 是否处于回看播放状态
     private boolean isUserSeeking = false;  // 用户是否正在手动拖动进度条
@@ -122,7 +123,7 @@ public class MainActivity extends AppCompatActivity {
 
 
 
-    // 定时刷新播放进度条的 Runnable
+    // 定时刷新播放进度条 the Runnable
     private final Runnable updateProgressAction = new Runnable() {
         @Override
         public void run() {
@@ -168,6 +169,9 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        android.app.UiModeManager uiModeManager = (android.app.UiModeManager) getSystemService(Context.UI_MODE_SERVICE);
+        isTvDevice = (uiModeManager != null && uiModeManager.getCurrentModeType() == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION);
 
         initViews();
         setupPlayer();
@@ -1060,6 +1064,7 @@ public class MainActivity extends AppCompatActivity {
             if (convertView == null) {
                 convertView = LayoutInflater.from(MainActivity.this).inflate(R.layout.item_category, parent, false);
             }
+            convertView.setFocusable(isTvDevice);
             TextView tv = (TextView) convertView;
             String cat = categories.get(position);
             tv.setText(cat);
@@ -1092,6 +1097,7 @@ public class MainActivity extends AppCompatActivity {
             if (convertView == null) {
                 convertView = LayoutInflater.from(MainActivity.this).inflate(R.layout.item_channel, parent, false);
             }
+            convertView.setFocusable(isTvDevice);
             
             List<Channel> list = groupedChannels.get(currentCategory);
             if (list != null && position >= 0 && position < list.size()) {
@@ -1129,6 +1135,7 @@ public class MainActivity extends AppCompatActivity {
             if (convertView == null) {
                 convertView = LayoutInflater.from(MainActivity.this).inflate(R.layout.item_category, parent, false);
             }
+            convertView.setFocusable(isTvDevice);
             TextView tv = (TextView) convertView;
             CatchupProgram prog = catchupList.get(position);
             tv.setText(prog.timeLabel);
