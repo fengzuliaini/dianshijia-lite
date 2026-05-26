@@ -13,6 +13,7 @@ import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.BaseAdapter;
 import android.widget.ListView;
+import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -26,61 +27,120 @@ import com.google.android.exoplayer2.Player;
 import com.google.android.exoplayer2.ui.PlayerView;
 
 import com.dianshijia.lite.model.Channel;
+import com.dianshijia.lite.model.CatchupProgram;
 import com.dianshijia.lite.parser.M3uParser;
+import com.dianshijia.lite.parser.EpgParser;
 
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
+import java.util.Locale;
 
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
     private static final String PREFS_NAME = "LiveTVPrefs";
     private static final String KEY_LAST_URL = "last_played_url";
     private static final String M3U_URL = "http://us.3223516.xyz:55000/tv.m3u";
+    private static final String EPG_URL = "https://e.erw.cc/all.xml.gz";
 
     // 自动隐藏及延时执行常量
     private static final int MSG_HIDE_SIDEBAR = 1;
     private static final int MSG_HIDE_OVERLAY = 2;
     private static final int MSG_TRIGGER_NUM_SWITCH = 3;
+    private static final int MSG_HIDE_CONTROLLER = 4;
     
-    private static final long DELAY_AUTO_HIDE = 5000; // 菜单和浮层 5秒无操作后自动消失
-    private static final long DELAY_NUM_SWITCH = 2000; // 数字换台延迟 2秒触发
+    private static final long DELAY_AUTO_HIDE = 5000;  // 5秒无操作自动隐藏
+    private static final long DELAY_NUM_SWITCH = 2000; // 数字键输入后2秒切台
 
     // UI 布局控件
     private PlayerView playerView;
     private View layoutSidebar;
     private ListView listCategories;
     private ListView listChannels;
+    private ListView listCatchup; // 第三列：回看节目单
+    
     private View layoutInfoOverlay;
     private TextView textOverlayNum;
     private TextView textOverlayName;
+    
     private View layoutLoading;
     private TextView textLoadingStatus;
+    
     private View layoutNumberInput;
     private TextView textNumberInput;
+
+    // 底部回看控制条
+    private View layoutController;
+    private TextView btnPlayPause;
+    private TextView textTimeCurrent;
+    private TextView textTimeTotal;
+    private SeekBar seekBar;
+    private TextView textBackToLive;
 
     // ExoPlayer 播放器
     private ExoPlayer player;
     
-    // 数据源管理
-    private LinkedHashMap<String, List<Channel>> groupedChannels = new LinkedHashMap<>();
-    private List<Channel> allChannels = new ArrayList<>();
-    private List<String> categories = new ArrayList<>();
+    // 数据源
+    private final LinkedHashMap<String, List<Channel>> groupedChannels = new LinkedHashMap<>();
+    private final List<Channel> allChannels = new ArrayList<>();
+    private final List<String> categories = new ArrayList<>();
+    private final List<CatchupProgram> catchupList = new ArrayList<>();
     
     private String currentCategory = "";
     private Channel currentChannel = null;
+    private CatchupProgram currentCatchupProgram = null;
 
     // 列表适配器
     private CategoryAdapter categoryAdapter;
     private ChannelAdapter channelAdapter;
+    private CatchupAdapter catchupAdapter;
 
-    // 状态记录
+    // 状态控制记录
     private boolean isSidebarShowing = false;
+    private boolean isCatchupMode = false; // 是否处于回看播放状态
+    private boolean isUserSeeking = false;  // 用户是否正在手动拖动进度条
     private long lastBackPressTime = 0;
     private final StringBuilder numberInputBuilder = new StringBuilder();
 
-    // 消息与定时处理器
+    private long tempSeekPosition = -1; // 缓动 Seek 的临时进度值
+    private Runnable autoSwitchLineRunnable = null; // 自动换源/换线任务
+
+    // 真正执行 Seek 跳转的 Action (缓动 Seek)
+    private final Runnable confirmSeekAction = new Runnable() {
+        @Override
+        public void run() {
+            if (player != null && tempSeekPosition != -1) {
+                player.seekTo(tempSeekPosition);
+                tempSeekPosition = -1;
+                showController(); // Seek后重新开始5秒倒计时隐藏控制条
+            }
+        }
+    };
+
+
+
+    // 定时刷新播放进度条的 Runnable
+    private final Runnable updateProgressAction = new Runnable() {
+        @Override
+        public void run() {
+            if (player != null && isCatchupMode && !isUserSeeking && tempSeekPosition == -1) {
+                long position = player.getCurrentPosition();
+                long duration = player.getDuration();
+                if (duration > 0) {
+                    int progress = (int) (position * 100 / duration);
+                    seekBar.setProgress(progress);
+                    textTimeCurrent.setText(formatTime(position));
+                    textTimeTotal.setText(formatTime(duration));
+                }
+            }
+            tvHandler.postDelayed(this, 1000);
+        }
+    };
+
+    // 统一的 Handler
     private final Handler tvHandler = new Handler(new Handler.Callback() {
         @Override
         public boolean handleMessage(@NonNull Message msg) {
@@ -94,6 +154,11 @@ public class MainActivity extends AppCompatActivity {
                 case MSG_TRIGGER_NUM_SWITCH:
                     performNumberSwitch();
                     return true;
+                case MSG_HIDE_CONTROLLER:
+                    if (isCatchupMode) {
+                        layoutController.setVisibility(View.GONE);
+                    }
+                    return true;
             }
             return false;
         }
@@ -104,14 +169,22 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // 初始化所有控件视图
         initViews();
-
-        // 配置并播放器实例化
         setupPlayer();
-
-        // 异步下载解析 M3U 直播源
         loadLiveChannels();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // 启动进度条轮询刷新
+        tvHandler.post(updateProgressAction);
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        tvHandler.removeCallbacks(updateProgressAction);
     }
 
     private void initViews() {
@@ -119,6 +192,7 @@ public class MainActivity extends AppCompatActivity {
         layoutSidebar = findViewById(R.id.layout_sidebar);
         listCategories = findViewById(R.id.list_categories);
         listChannels = findViewById(R.id.list_channels);
+        listCatchup = findViewById(R.id.list_catchup);
         
         layoutInfoOverlay = findViewById(R.id.layout_info_overlay);
         textOverlayNum = findViewById(R.id.text_overlay_num);
@@ -130,7 +204,25 @@ public class MainActivity extends AppCompatActivity {
         layoutNumberInput = findViewById(R.id.layout_number_input);
         textNumberInput = findViewById(R.id.text_number_input);
 
-        // 触屏交互支持：点按全屏视频画面切换显示/隐藏左侧频道侧边栏
+        // 控制栏视图绑定
+        layoutController = findViewById(R.id.layout_controller);
+        btnPlayPause = findViewById(R.id.btn_play_pause);
+        textTimeCurrent = findViewById(R.id.text_time_current);
+        textTimeTotal = findViewById(R.id.text_time_total);
+        seekBar = findViewById(R.id.seek_bar);
+        textBackToLive = findViewById(R.id.text_back_to_live);
+
+        // 初始化适配器
+        categoryAdapter = new CategoryAdapter();
+        listCategories.setAdapter(categoryAdapter);
+
+        channelAdapter = new ChannelAdapter();
+        listChannels.setAdapter(channelAdapter);
+
+        catchupAdapter = new CatchupAdapter();
+        listCatchup.setAdapter(catchupAdapter);
+
+        // 触屏交互支持：点击全屏画面呼出或收起侧边栏，同时也会激活回看控制栏的显示
         playerView.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -139,22 +231,19 @@ public class MainActivity extends AppCompatActivity {
                 } else {
                     showSidebar();
                 }
+                if (isCatchupMode) {
+                    showController();
+                }
             }
         });
 
-        // 初始化列表及其适配器
-        categoryAdapter = new CategoryAdapter();
-        listCategories.setAdapter(categoryAdapter);
-
-        channelAdapter = new ChannelAdapter();
-        listChannels.setAdapter(channelAdapter);
-
-        // 监听分类列表的焦点与选中事件
+        // 遥控方向联动：当遥控在分类列表中移动时，刷新频道列表，并控制回看列表自动收起或根据对应频道显示
         listCategories.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
                 if (position >= 0 && position < categories.size()) {
                     updateChannelList(categories.get(position));
+                    listCatchup.setVisibility(View.GONE); // 分类切换，先关闭第三列回看
                     resetSidebarHideTimer();
                 }
             }
@@ -163,28 +252,124 @@ public class MainActivity extends AppCompatActivity {
             public void onNothingSelected(AdapterView<?> parent) {}
         });
 
-        // 监听分类列表的点按事件
+        // 分类列表点按响应
         listCategories.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
                 if (position >= 0 && position < categories.size()) {
                     updateChannelList(categories.get(position));
                 }
-                // 分类选定后，自动把遥控焦点移到右侧频道列表
                 listChannels.requestFocus();
                 resetSidebarHideTimer();
             }
         });
 
-        // 监听频道列表的点按事件（确定播放）
+        // 频道列表选中监听：在后台默默更新对应频道的回看节目列表
+        listChannels.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                List<Channel> channels = groupedChannels.get(currentCategory);
+                if (channels != null && position >= 0 && position < channels.size()) {
+                    Channel channel = channels.get(position);
+                    updateCatchupList(channel); // 静默更新回看列表数据，不显示 UI
+                    resetSidebarHideTimer();
+                }
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {}
+        });
+
+        // 频道列表触屏点按监听：点击后自动开启直播，并同步拉起该频道的历史回看备用列表
         listChannels.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
                 List<Channel> channels = groupedChannels.get(currentCategory);
                 if (channels != null && position >= 0 && position < channels.size()) {
-                    playChannel(channels.get(position));
-                    hideSidebar(); // 选中后隐藏菜单
+                    Channel channel = channels.get(position);
+                    isCatchupMode = false; // 触屏点台，默认直接切回直播模式
+                    layoutController.setVisibility(View.GONE);
+                    
+                    playChannel(channel);
+
+                    if (channel.getTvodUrl() != null) {
+                        updateCatchupList(channel);
+                        listCatchup.setVisibility(View.VISIBLE);
+                    } else {
+                        listCatchup.setVisibility(View.GONE);
+                    }
+                    resetSidebarHideTimer();
                 }
+            }
+        });
+
+        // 回看列表项点选处理（确定加载历史回放）
+        listCatchup.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                if (position >= 0 && position < catchupList.size()) {
+                    CatchupProgram prog = catchupList.get(position);
+                    if (prog.isLive) {
+                        // 返回直播
+                        isCatchupMode = false;
+                        layoutController.setVisibility(View.GONE);
+                        playChannel(currentChannel);
+                    } else {
+                        // 启动回看播放
+                        playCatchup(currentChannel, prog);
+                    }
+                    hideSidebar();
+                }
+            }
+        });
+
+        // 底部进度控制栏触屏拖动 Seekbar 响应
+        seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                if (fromUser) {
+                    isUserSeeking = true;
+                    showController(); // 拖动时重置隐藏定时器
+                    if (player != null) {
+                        long targetPos = (player.getDuration() * progress) / 100;
+                        textTimeCurrent.setText(formatTime(targetPos));
+                    }
+                }
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {
+                isUserSeeking = true;
+                tvHandler.removeMessages(MSG_HIDE_CONTROLLER);
+            }
+
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
+                isUserSeeking = false;
+                if (player != null) {
+                    long duration = player.getDuration();
+                    long targetPos = (duration * seekBar.getProgress()) / 100;
+                    player.seekTo(targetPos);
+                }
+                showController(); // 开启延迟隐藏控制条
+            }
+        });
+
+        // 播放与暂停文字按钮点击
+        btnPlayPause.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                togglePlayPause();
+            }
+        });
+
+        // 返回直播点击
+        textBackToLive.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                isCatchupMode = false;
+                layoutController.setVisibility(View.GONE);
+                playChannel(currentChannel);
             }
         });
     }
@@ -192,7 +377,6 @@ public class MainActivity extends AppCompatActivity {
     private void setupPlayer() {
         player = new ExoPlayer.Builder(this).build();
         playerView.setPlayer(player);
-        playerView.setKeepScreenOn(true); // 保证直播时屏幕不会进入休眠模式
 
         player.addListener(new Player.Listener() {
             @Override
@@ -207,7 +391,13 @@ public class MainActivity extends AppCompatActivity {
                         showInfoOverlay();
                         break;
                     case Player.STATE_ENDED:
-                        Log.i(TAG, "Playback ended");
+                        if (isCatchupMode) {
+                            // 回看节目播放完毕后，自动切回直播状态
+                            isCatchupMode = false;
+                            layoutController.setVisibility(View.GONE);
+                            playChannel(currentChannel);
+                            Toast.makeText(MainActivity.this, "回看节目已播完，自动切回直播", Toast.LENGTH_SHORT).show();
+                        }
                         break;
                 }
             }
@@ -215,26 +405,42 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onPlayerError(@NonNull PlaybackException error) {
                 Log.e(TAG, "ExoPlayer Error: ", error);
-                layoutLoading.setVisibility(View.VISIBLE);
-                textLoadingStatus.setText(R.string.parse_failed);
                 
-                // 播放失败 3秒后尝试重试
-                tvHandler.postDelayed(new Runnable() {
-                    @Override
-                    public void run() {
-                        if (currentChannel != null) {
-                            textLoadingStatus.setText(R.string.retry_loading);
-                            playChannel(currentChannel);
-                        }
+                // 仅在直播模式下支持自动换线/换源
+                if (!isCatchupMode && currentChannel != null && currentChannel.getLiveUrls().size() > 1) {
+                    layoutLoading.setVisibility(View.VISIBLE);
+                    textLoadingStatus.setText("当前线路加载失败，正在尝试自动换线...");
+                    
+                    if (autoSwitchLineRunnable != null) {
+                        tvHandler.removeCallbacks(autoSwitchLineRunnable);
                     }
-                }, 3000);
+                    autoSwitchLineRunnable = new Runnable() {
+                        @Override
+                        public void run() {
+                            switchLine(true); // 自动尝试切下一条线路
+                        }
+                    };
+                    tvHandler.postDelayed(autoSwitchLineRunnable, 2000);
+                } else {
+                    layoutLoading.setVisibility(View.VISIBLE);
+                    textLoadingStatus.setText(R.string.parse_failed);
+                    
+                    // 回看加载失败或直播单线路失败，延时重试当前源
+                    tvHandler.postDelayed(new Runnable() {
+                        @Override
+                        public void run() {
+                            if (isCatchupMode && currentCatchupProgram != null) {
+                                playCatchup(currentChannel, currentCatchupProgram);
+                            } else if (currentChannel != null) {
+                                playChannel(currentChannel);
+                            }
+                        }
+                    }, 3000);
+                }
             }
         });
     }
 
-    /**
-     * 加载直播源
-     */
     private void loadLiveChannels() {
         M3uParser.loadChannels(this, M3U_URL, new M3uParser.OnParseListener() {
             @Override
@@ -251,9 +457,18 @@ public class MainActivity extends AppCompatActivity {
                         categories.addAll(groupedChannels.keySet());
 
                         categoryAdapter.notifyDataSetChanged();
-
-                        // 读取记忆播放，优先开播
                         resumeLastWatched();
+
+                        // 异步下载与解析 EPG 节目单
+                        EpgParser.loadEpg(MainActivity.this, EPG_URL, allChannels, new Runnable() {
+                            @Override
+                            public void run() {
+                                Log.i(TAG, "EPG XMLTV 节目单已成功加载，静默刷新当前频道回看单");
+                                if (currentChannel != null) {
+                                    updateCatchupList(currentChannel);
+                                }
+                            }
+                        });
                     }
                 });
             }
@@ -271,9 +486,6 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    /**
-     * 自动恢复上次播放的频道，如果没有记录，则默认播放第一个频道
-     */
     private void resumeLastWatched() {
         if (allChannels.isEmpty()) return;
 
@@ -283,28 +495,26 @@ public class MainActivity extends AppCompatActivity {
         Channel target = null;
         if (!lastUrl.isEmpty()) {
             for (Channel c : allChannels) {
-                if (c.getUrl().equals(lastUrl)) {
+                if (c.getLiveUrls().contains(lastUrl)) {
                     target = c;
+                    // 同步对应的线号
+                    target.setCurrentLineIndex(c.getLiveUrls().indexOf(lastUrl));
                     break;
                 }
             }
         }
 
         if (target == null) {
-            target = allChannels.get(0); // 默认播第一个
+            target = allChannels.get(0);
         }
 
         playChannel(target);
     }
 
-    /**
-     * 更新频道列表
-     */
     private void updateChannelList(String category) {
         currentCategory = category;
         channelAdapter.notifyDataSetChanged();
         
-        // 保持频道列表滚动到合适位置
         if (currentChannel != null && currentChannel.getGroup().equals(category)) {
             List<Channel> channels = groupedChannels.get(category);
             if (channels != null) {
@@ -319,33 +529,109 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /**
-     * 播放指定频道
+     * 播放指定频道直播 (支持指定多线号)
      */
     private void playChannel(Channel channel) {
         if (channel == null) return;
+        if (autoSwitchLineRunnable != null) {
+            tvHandler.removeCallbacks(autoSwitchLineRunnable);
+            autoSwitchLineRunnable = null;
+        }
         currentChannel = channel;
         currentCategory = channel.getGroup();
 
-        // 停止当前播放
         player.stop();
-        
-        // 装载新信号源
-        MediaItem mediaItem = MediaItem.fromUri(channel.getUrl());
+
+        String url = channel.getPlayUrl();
+        if (url == null) {
+            Toast.makeText(this, "该频道暂无播放信号", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        MediaItem mediaItem = MediaItem.fromUri(url);
         player.setMediaItem(mediaItem);
         player.prepare();
         player.play();
 
-        // 显示右上角台号提示
+        // 提示框展现台号 + 频道名 + 线路 (例: CCTV1 [线路 1/3])
+        String lineInfo = "";
+        if (channel.getLiveUrls().size() > 1) {
+            lineInfo = " (线路 " + (channel.getCurrentLineIndex() + 1) + "/" + channel.getLiveUrls().size() + ")";
+        }
+        textOverlayName.setText(channel.getName() + lineInfo);
         showInfoOverlay();
 
-        // 异步缓存本次播放历史记录，供下次记忆开机秒播
+        // 直播模式下强制隐藏进度条
+        layoutController.setVisibility(View.GONE);
+
+        // 缓存当前的播放链接，以便开机自启续播
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        prefs.edit().putString(KEY_LAST_URL, channel.getUrl()).apply();
+        prefs.edit().putString(KEY_LAST_URL, url).apply();
     }
 
     /**
-     * 上下键快速切台
+     * 播放回看节目
      */
+    private void playCatchup(Channel channel, CatchupProgram program) {
+        if (channel == null || program == null) return;
+        if (autoSwitchLineRunnable != null) {
+            tvHandler.removeCallbacks(autoSwitchLineRunnable);
+            autoSwitchLineRunnable = null;
+        }
+        isCatchupMode = true;
+        currentCatchupProgram = program;
+
+        player.stop();
+
+        String tvodBaseUrl = channel.getTvodUrl();
+        if (tvodBaseUrl == null) {
+            Toast.makeText(this, "该频道暂无回看流信号", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // 拼接 IPTV TVOD playseek 回看协议参数：URL 末尾追加 playseek=开始时间-结束时间
+        String separator = tvodBaseUrl.contains("?") ? "&" : "?";
+        String catchupUrl = tvodBaseUrl + separator + "playseek=" + program.beginTime + "-" + program.endTime;
+
+        Log.i(TAG, "Playing catchup URL: " + catchupUrl);
+
+        MediaItem mediaItem = MediaItem.fromUri(catchupUrl);
+        player.setMediaItem(mediaItem);
+        player.prepare();
+        player.play();
+
+        // 提示浮窗中展示
+        textOverlayName.setText(channel.getName() + " [历史回放]");
+        showInfoOverlay();
+
+        // 展现底部回看操作控制条
+        btnPlayPause.setText("⏸");
+        showController();
+    }
+
+    /**
+     * 手动切换线路
+     */
+    private void switchLine(boolean next) {
+        if (currentChannel == null || isCatchupMode) return;
+        List<String> lines = currentChannel.getLiveUrls();
+        if (lines.size() <= 1) {
+            Toast.makeText(this, "该频道只有单条线路", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        int currentIndex = currentChannel.getCurrentLineIndex();
+        int nextIndex;
+        if (next) {
+            nextIndex = (currentIndex + 1) % lines.size();
+        } else {
+            nextIndex = (currentIndex - 1 + lines.size()) % lines.size();
+        }
+
+        currentChannel.setCurrentLineIndex(nextIndex);
+        playChannel(currentChannel);
+    }
+
     private void switchChannel(boolean next) {
         if (allChannels.isEmpty()) return;
 
@@ -357,7 +643,75 @@ public class MainActivity extends AppCompatActivity {
             newIndex = (currentIndex - 1 + allChannels.size()) % allChannels.size();
         }
 
+        isCatchupMode = false; // 换台自动重置回直播模式
+        layoutController.setVisibility(View.GONE);
         playChannel(allChannels.get(newIndex));
+    }
+
+    /**
+     * 自动推演生成频道最近 24 小时的虚拟节目单
+     */
+    private void updateCatchupList(Channel channel) {
+        if (channel == null) return;
+        catchupList.clear();
+
+        // 1. 新增第一项：“返回实时直播”的快捷触发键
+        CatchupProgram live = new CatchupProgram();
+        live.timeLabel = "[直播] 返回实时直播";
+        live.isLive = true;
+        catchupList.add(live);
+
+        // 2. 优先使用真实的 EPG 节目单
+        List<CatchupProgram> epgProgs = channel.getEpgPrograms();
+        if (epgProgs != null && !epgProgs.isEmpty()) {
+            // 倒序加入列表，使最新播完的节目排在最前面
+            for (int i = epgProgs.size() - 1; i >= 0; i--) {
+                catchupList.add(epgProgs.get(i));
+            }
+        } else {
+            // 无 EPG 数据时，采用 24 小时虚拟节目单兜底
+            long now = System.currentTimeMillis();
+            SimpleDateFormat sdfLabel = new SimpleDateFormat("HH:mm", Locale.getDefault());
+            SimpleDateFormat sdfParam = new SimpleDateFormat("yyyyMMddHHmmss", Locale.getDefault());
+            SimpleDateFormat sdfDate = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+
+            long timeBlock = 2 * 60 * 60 * 1000; // 2小时的毫秒数
+            
+            // 偶数小时对齐（如 16:30 对齐至 16:00 起）
+            Calendar cal = Calendar.getInstance();
+            cal.setTimeInMillis(now);
+            int hour = cal.get(Calendar.HOUR_OF_DAY);
+            int alignHour = (hour / 2) * 2;
+            cal.set(Calendar.HOUR_OF_DAY, alignHour);
+            cal.set(Calendar.MINUTE, 0);
+            cal.set(Calendar.SECOND, 0);
+            cal.set(Calendar.MILLISECOND, 0);
+
+            long baseTime = cal.getTimeInMillis();
+            String todayStr = sdfDate.format(new Date(now));
+
+            for (int i = 0; i < 12; i++) {
+                long start = baseTime - i * timeBlock;
+                long end = start + timeBlock;
+
+                // 越过未来的时间段
+                if (start > now) {
+                    continue;
+                }
+
+                CatchupProgram p = new CatchupProgram();
+                String dateStr = sdfDate.format(new Date(start));
+                String dayLabel = dateStr.equals(todayStr) ? "今天" : "昨天";
+
+                p.timeLabel = dayLabel + " " + sdfLabel.format(new Date(start)) + " - " + sdfLabel.format(new Date(end));
+                p.beginTime = sdfParam.format(new Date(start));
+                p.endTime = sdfParam.format(new Date(end));
+                p.isLive = false;
+                catchupList.add(p);
+            }
+        }
+
+        catchupAdapter.notifyDataSetChanged();
     }
 
     // ==========================================
@@ -368,17 +722,28 @@ public class MainActivity extends AppCompatActivity {
         if (isSidebarShowing) return;
         isSidebarShowing = true;
         layoutSidebar.setVisibility(View.VISIBLE);
+        
+        // 打开侧边栏菜单时，默认隐藏回看列表，直到用户按右键拉出
+        listCatchup.setVisibility(View.GONE);
 
-        // 同步焦点状态
         if (!categories.isEmpty()) {
             int catIndex = categories.indexOf(currentCategory);
             if (catIndex != -1) {
                 listCategories.setSelection(catIndex);
             }
         }
+
+        if (currentChannel != null) {
+            List<Channel> channels = groupedChannels.get(currentCategory);
+            if (channels != null) {
+                int chIndex = channels.indexOf(currentChannel);
+                if (chIndex != -1) {
+                    listChannels.setSelection(chIndex);
+                }
+            }
+        }
         
-        // 分类列表先获取焦点
-        listCategories.requestFocus();
+        listChannels.requestFocus(); // 直接聚焦到频道列表上
         resetSidebarHideTimer();
     }
 
@@ -398,40 +763,138 @@ public class MainActivity extends AppCompatActivity {
         if (currentChannel == null) return;
         
         textOverlayNum.setText(currentChannel.getNumber());
-        textOverlayName.setText(currentChannel.getName());
         layoutInfoOverlay.setVisibility(View.VISIBLE);
 
         tvHandler.removeMessages(MSG_HIDE_OVERLAY);
         tvHandler.sendEmptyMessageDelayed(MSG_HIDE_OVERLAY, DELAY_AUTO_HIDE);
     }
 
+    private void showController() {
+        if (!isCatchupMode) return;
+        layoutController.setVisibility(View.VISIBLE);
+        tvHandler.removeMessages(MSG_HIDE_CONTROLLER);
+        tvHandler.sendEmptyMessageDelayed(MSG_HIDE_CONTROLLER, DELAY_AUTO_HIDE);
+    }
+
+    private void togglePlayPause() {
+        if (player == null || !isCatchupMode) return;
+        if (player.isPlaying()) {
+            player.pause();
+            btnPlayPause.setText("▶");
+        } else {
+            player.play();
+            btnPlayPause.setText("⏸");
+        }
+        showController();
+    }
+
+
+
+    private String formatTime(long ms) {
+        long totalSeconds = ms / 1000;
+        long seconds = totalSeconds % 60;
+        long minutes = (totalSeconds / 60) % 60;
+        long hours = totalSeconds / 3600;
+        if (hours > 0) {
+            return String.format(Locale.getDefault(), "%02d:%02d:%02d", hours, minutes, seconds);
+        } else {
+            return String.format(Locale.getDefault(), "%02d:%02d", minutes, seconds);
+        }
+    }
+
     // ==========================================
-    // 遥控键盘与按键逻辑接管
+    // 遥控键盘交互核心逻辑接管
     // ==========================================
 
     @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
-        // 重置侧边栏隐藏时间
         if (isSidebarShowing) {
             resetSidebarHideTimer();
         }
 
-        // 接管 0-9 数字键（支持遥控数字键盘换台）
+        // 1. 如果数字键盘显示，且按了确定键：立即换台
+        if (layoutNumberInput.getVisibility() == View.VISIBLE && 
+            (keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER || keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER)) {
+            tvHandler.removeMessages(MSG_TRIGGER_NUM_SWITCH);
+            performNumberSwitch();
+            return true;
+        }
+
+        // 2. 接管数字输入键 (0-9)
         if (keyCode >= KeyEvent.KEYCODE_0 && keyCode <= KeyEvent.KEYCODE_9) {
             handleNumberInput(keyCode - KeyEvent.KEYCODE_0);
             return true;
         }
 
+        // 3. 回看播放状态下的全屏遥控逻辑接管
+        if (isCatchupMode && !isSidebarShowing) {
+            switch (keyCode) {
+                case KeyEvent.KEYCODE_DPAD_UP:
+                case KeyEvent.KEYCODE_DPAD_DOWN:
+                    // 回看模式下按上下键：直接退出回看并换台 (切回直播频道)
+                    isCatchupMode = false;
+                    layoutController.setVisibility(View.GONE);
+                    switchChannel(keyCode == KeyEvent.KEYCODE_DPAD_DOWN);
+                    return true;
+
+                case KeyEvent.KEYCODE_DPAD_LEFT:
+                case KeyEvent.KEYCODE_DPAD_RIGHT:
+                    // 回看模式下按左右键：实现流畅的缓动 Seek 快退/快进
+                    long duration = player.getDuration();
+                    if (duration > 0) {
+                        if (tempSeekPosition == -1) {
+                            tempSeekPosition = player.getCurrentPosition();
+                        }
+                        long offset = (keyCode == KeyEvent.KEYCODE_DPAD_LEFT) ? -30000 : 30000;
+                        tempSeekPosition += offset;
+                        if (tempSeekPosition < 0) tempSeekPosition = 0;
+                        if (tempSeekPosition > duration) tempSeekPosition = duration;
+
+                        // 显示进度条控制栏
+                        showController();
+
+                        // 实时移动 SeekBar 进度和刷新当前时间文本（防卡顿）
+                        seekBar.setProgress((int) (tempSeekPosition * 100 / duration));
+                        textTimeCurrent.setText(formatTime(tempSeekPosition));
+
+                        // 防抖：重置 1.0 秒延迟真正触发 seekTo
+                        tvHandler.removeCallbacks(confirmSeekAction);
+                        tvHandler.postDelayed(confirmSeekAction, 1000);
+                    }
+                    return true;
+
+                case KeyEvent.KEYCODE_DPAD_CENTER:
+                case KeyEvent.KEYCODE_ENTER:
+                case KeyEvent.KEYCODE_NUMPAD_ENTER:
+                    // 确定键在回看状态下为 播放/暂停
+                    togglePlayPause();
+                    return true;
+
+                case KeyEvent.KEYCODE_BACK:
+                    if (layoutController.getVisibility() == View.VISIBLE) {
+                        layoutController.setVisibility(View.GONE);
+                        return true;
+                    } else {
+                        // 一键返回直播
+                        isCatchupMode = false;
+                        playChannel(currentChannel);
+                        Toast.makeText(this, "已退出回看，返回实时直播", Toast.LENGTH_SHORT).show();
+                        return true;
+                    }
+            }
+        }
+
+        // 4. 直播模式或菜单状态下的遥控键接管
         switch (keyCode) {
             case KeyEvent.KEYCODE_DPAD_UP:
                 if (!isSidebarShowing) {
-                    switchChannel(false); // 向上换台
+                    switchChannel(false); // 直播向上换台
                     return true;
                 }
                 break;
             case KeyEvent.KEYCODE_DPAD_DOWN:
                 if (!isSidebarShowing) {
-                    switchChannel(true); // 向下换台
+                    switchChannel(true); // 直播向下换台
                     return true;
                 }
                 break;
@@ -444,16 +907,45 @@ public class MainActivity extends AppCompatActivity {
                 }
                 break;
             case KeyEvent.KEYCODE_DPAD_LEFT:
-                if (isSidebarShowing && listChannels.hasFocus()) {
-                    // 如果焦点在频道列表，按左键让焦点回到分类列表
-                    listCategories.requestFocus();
+                if (isSidebarShowing) {
+                    if (listCatchup.hasFocus()) {
+                        // 回看列表向左：回到频道列表并收起回看列表
+                        listCatchup.setVisibility(View.GONE);
+                        listChannels.requestFocus();
+                        return true;
+                    } else if (listChannels.hasFocus()) {
+                        // 频道列表向左：回到分类列表
+                        listCategories.requestFocus();
+                        return true;
+                    }
+                } else {
+                    // 直播状态按左键：切换上一个线路
+                    switchLine(false);
                     return true;
                 }
                 break;
             case KeyEvent.KEYCODE_DPAD_RIGHT:
-                if (isSidebarShowing && listCategories.hasFocus()) {
-                    // 如果焦点在分类列表，按右键让焦点回到频道列表
-                    listChannels.requestFocus();
+                if (isSidebarShowing) {
+                    if (listCategories.hasFocus()) {
+                        // 分类列表向右：进入频道列表
+                        listChannels.requestFocus();
+                        return true;
+                    } else if (listChannels.hasFocus()) {
+                        // 频道列表向右：拉出回看节目单并进入焦点
+                        if (currentChannel != null && (!currentChannel.getEpgPrograms().isEmpty() || currentChannel.getTvodUrl() != null)) {
+                            // 确保在拉出时刷新节目单
+                            updateCatchupList(currentChannel);
+                            listCatchup.setVisibility(View.VISIBLE);
+                            listCatchup.requestFocus();
+                            listCatchup.setSelection(0); // 默认高亮“返回直播”项
+                        } else {
+                            Toast.makeText(this, "该频道暂无回看节目单", Toast.LENGTH_SHORT).show();
+                        }
+                        return true;
+                    }
+                } else {
+                    // 直播状态按右键：切换下一个线路
+                    switchLine(true);
                     return true;
                 }
                 break;
@@ -461,8 +953,11 @@ public class MainActivity extends AppCompatActivity {
                 if (isSidebarShowing) {
                     hideSidebar();
                     return true;
+                } else if (layoutController.getVisibility() == View.VISIBLE) {
+                    layoutController.setVisibility(View.GONE);
+                    return true;
                 } else {
-                    // 播放状态下双击返回键安全退出
+                    // 常规双击退出程序
                     long currentTime = System.currentTimeMillis();
                     if (currentTime - lastBackPressTime < 2000) {
                         finish();
@@ -476,14 +971,9 @@ public class MainActivity extends AppCompatActivity {
         return super.onKeyDown(keyCode, event);
     }
 
-    /**
-     * 接收数字键输入并展示提示浮窗
-     */
     private void handleNumberInput(int digit) {
-        // 取消之前的输入超时
         tvHandler.removeMessages(MSG_TRIGGER_NUM_SWITCH);
         
-        // 限制最多输入3位数台号
         if (numberInputBuilder.length() < 3) {
             numberInputBuilder.append(digit);
         }
@@ -491,23 +981,18 @@ public class MainActivity extends AppCompatActivity {
         layoutNumberInput.setVisibility(View.VISIBLE);
         textNumberInput.setText(numberInputBuilder.toString());
 
-        // 2秒无输入后触发切台
         tvHandler.sendEmptyMessageDelayed(MSG_TRIGGER_NUM_SWITCH, DELAY_NUM_SWITCH);
     }
 
-    /**
-     * 延迟处理数字切台
-     */
     private void performNumberSwitch() {
         String numStr = numberInputBuilder.toString();
-        numberInputBuilder.setLength(0); // 清空以便下次输入
+        numberInputBuilder.setLength(0);
         layoutNumberInput.setVisibility(View.GONE);
 
         if (numStr.isEmpty()) return;
 
-        // 尝试匹配台号，格式化为带前导零对比，或者直接匹配数值
         int targetNum = Integer.parseInt(numStr);
-        String formattedNum = String.format("%03d", targetNum);
+        String formattedNum = String.format(Locale.getDefault(), "%03d", targetNum);
 
         Channel match = null;
         for (Channel c : allChannels) {
@@ -518,6 +1003,8 @@ public class MainActivity extends AppCompatActivity {
         }
 
         if (match != null) {
+            isCatchupMode = false;
+            layoutController.setVisibility(View.GONE);
             playChannel(match);
         } else {
             Toast.makeText(this, "台号 " + numStr + " 不存在", Toast.LENGTH_SHORT).show();
@@ -543,7 +1030,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     // ==========================================
-    // 列表设配器 (Adapters)
+    // 列表适配器 (Adapters)
     // ==========================================
 
     private class CategoryAdapter extends BaseAdapter {
@@ -571,12 +1058,7 @@ public class MainActivity extends AppCompatActivity {
             String cat = categories.get(position);
             tv.setText(cat);
             
-            // 当前选中的分类加深高亮显示
-            if (cat.equals(currentCategory)) {
-                tv.setSelected(true);
-            } else {
-                tv.setSelected(false);
-            }
+            tv.setSelected(cat.equals(currentCategory));
             return convertView;
         }
     }
@@ -614,13 +1096,49 @@ public class MainActivity extends AppCompatActivity {
                 numTv.setText(c.getNumber());
                 nameTv.setText(c.getName());
 
-                // 当前正在播放的频道标记选中高亮状态
-                if (c == currentChannel) {
-                    convertView.setSelected(true);
-                } else {
-                    convertView.setSelected(false);
-                }
+                convertView.setSelected(c == currentChannel);
             }
+            return convertView;
+        }
+    }
+
+    private class CatchupAdapter extends BaseAdapter {
+        @Override
+        public int getCount() {
+            return catchupList.size();
+        }
+
+        @Override
+        public Object getItem(int position) {
+            return catchupList.get(position);
+        }
+
+        @Override
+        public long getItemId(int position) {
+            return position;
+        }
+
+        @Override
+        public View getView(int position, View convertView, ViewGroup parent) {
+            if (convertView == null) {
+                convertView = LayoutInflater.from(MainActivity.this).inflate(R.layout.item_category, parent, false);
+            }
+            TextView tv = (TextView) convertView;
+            CatchupProgram prog = catchupList.get(position);
+            tv.setText(prog.timeLabel);
+            
+            // 返回直播高亮亮金黄色
+            if (prog.isLive) {
+                tv.setTextColor(getResources().getColor(R.color.accent_gold));
+            } else {
+                tv.setTextColor(getResources().getColor(R.color.white));
+            }
+
+            boolean isSelected = isCatchupMode && (prog == currentCatchupProgram || 
+                                 (currentCatchupProgram != null && prog != null &&
+                                  !prog.isLive && !currentCatchupProgram.isLive &&
+                                  prog.beginTime.equals(currentCatchupProgram.beginTime)));
+            tv.setSelected(isSelected);
             return convertView;
         }
     }

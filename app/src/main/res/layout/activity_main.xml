@@ -16,7 +16,7 @@
         app:surface_type="texture_view"
         app:resize_mode="fit" />
 
-    <!-- 侧边栏频道选择菜单：包含分类列表与频道列表 -->
+    <!-- 侧边栏选择菜单：包含分类列表、频道列表、回看时段列表 -->
     <LinearLayout
         android:id="@+id/layout_sidebar"
         android:layout_width="wrap_content"
@@ -25,42 +25,53 @@
         android:visibility="gone"
         android:background="@android:color/transparent">
 
-        <!-- 左半部：分类列表 -->
+        <!-- 第一列：分类列表 -->
         <ListView
             android:id="@+id/list_categories"
-            android:layout_width="150dp"
+            android:layout_width="140dp"
             android:layout_height="match_parent"
             android:background="@color/bg_sidebar"
             android:divider="@null"
             android:scrollbars="none"
             android:choiceMode="singleChoice" />
 
-        <!-- 右半部：具体频道列表 -->
+        <!-- 第二列：具体频道列表 -->
         <ListView
             android:id="@+id/list_channels"
-            android:layout_width="260dp"
+            android:layout_width="240dp"
             android:layout_height="match_parent"
             android:background="@color/bg_sidebar_sub"
             android:divider="@null"
             android:scrollbars="none"
             android:choiceMode="singleChoice" />
+
+        <!-- 第三列：回看时段列表 (初始隐藏，遥控按右或触屏呼出) -->
+        <ListView
+            android:id="@+id/list_catchup"
+            android:layout_width="180dp"
+            android:layout_height="match_parent"
+            android:background="#E62C2C2E"
+            android:divider="@null"
+            android:scrollbars="none"
+            android:choiceMode="singleChoice"
+            android:visibility="gone" />
     </LinearLayout>
 
-    <!-- 右上角换台时的频道信息提示框 -->
+    <!-- 左下角换台及线路提示框 (电视家经典 OSD 样式) -->
     <LinearLayout
         android:id="@+id/layout_info_overlay"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="top|right"
-        android:layout_marginTop="30dp"
-        android:layout_marginRight="40dp"
+        android:layout_gravity="bottom|left"
+        android:layout_marginLeft="45dp"
+        android:layout_marginBottom="90dp"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:paddingLeft="20dp"
-        android:paddingRight="20dp"
-        android:paddingTop="12dp"
-        android:paddingBottom="12dp"
-        android:background="@color/bg_overlay"
+        android:paddingLeft="25dp"
+        android:paddingRight="25dp"
+        android:paddingTop="15dp"
+        android:paddingBottom="15dp"
+        android:background="@drawable/bg_info_overlay"
         android:visibility="gone">
 
         <!-- 提示框中的金黄色台号 -->
@@ -73,7 +84,7 @@
             android:textStyle="bold"
             android:layout_marginRight="10dp" />
 
-        <!-- 提示框中的频道名 -->
+        <!-- 提示框中的频道名与线路 -->
         <TextView
             android:id="@+id/text_overlay_name"
             android:layout_width="wrap_content"
@@ -133,6 +144,83 @@
             android:textSize="72sp"
             android:textColor="@color/accent_gold"
             android:textStyle="bold" />
+    </LinearLayout>
+
+    <!-- 底部播放进度控制栏：回看模式下可见 -->
+    <LinearLayout
+        android:id="@+id/layout_controller"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:background="#E61A1A1A"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingLeft="20dp"
+        android:paddingRight="20dp"
+        android:paddingTop="15dp"
+        android:paddingBottom="15dp"
+        android:visibility="gone">
+
+        <!-- 播放/暂停文本按钮 -->
+        <TextView
+            android:id="@+id/btn_play_pause"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="24sp"
+            android:textColor="@color/white"
+            android:text="⏸"
+            android:padding="5dp"
+            android:focusable="true"
+            android:clickable="true" />
+
+        <!-- 当前进度时间 -->
+        <TextView
+            android:id="@+id/text_time_current"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="16sp"
+            android:textColor="@color/white"
+            android:text="00:00:00"
+            android:layout_marginLeft="15dp"
+            android:layout_marginRight="15dp" />
+
+        <!-- 进度条 -->
+        <SeekBar
+            android:id="@+id/seek_bar"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:max="100"
+            android:progress="0"
+            android:focusable="true" />
+
+        <!-- 总时长 -->
+        <TextView
+            android:id="@+id/text_time_total"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="16sp"
+            android:textColor="@color/white"
+            android:text="00:00:00"
+            android:layout_marginLeft="15dp"
+            android:layout_marginRight="15dp" />
+
+        <!-- 一键返回直播按钮 -->
+        <TextView
+            android:id="@+id/text_back_to_live"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="16sp"
+            android:textColor="@color/accent_gold"
+            android:textStyle="bold"
+            android:text="返回直播"
+            android:background="@drawable/selector_item"
+            android:paddingLeft="12dp"
+            android:paddingRight="12dp"
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp"
+            android:focusable="true"
+            android:clickable="true" />
     </LinearLayout>
 
 </FrameLayout>

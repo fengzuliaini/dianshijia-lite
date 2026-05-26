@@ -1,0 +1,541 @@
+﻿build	Set up job	锘?026-05-26T08:35:11.8797989Z Current runner version: '2.334.0'
+build	Set up job	2026-05-26T08:35:11.8837435Z ##[group]Runner Image Provisioner
+build	Set up job	2026-05-26T08:35:11.8839119Z Hosted Compute Agent
+build	Set up job	2026-05-26T08:35:11.8839974Z Version: 20260213.493
+build	Set up job	2026-05-26T08:35:11.8841132Z Commit: 5c115507f6dd24b8de37d8bbe0bb4509d0cc0fa3
+build	Set up job	2026-05-26T08:35:11.8842244Z Build Date: 2026-02-13T00:28:41Z
+build	Set up job	2026-05-26T08:35:11.8843469Z Worker ID: {9c20b2b7-dde9-412f-a68a-585fd7dd7cdc}
+build	Set up job	2026-05-26T08:35:11.8844638Z Azure Region: eastus
+build	Set up job	2026-05-26T08:35:11.8845489Z ##[endgroup]
+build	Set up job	2026-05-26T08:35:11.8848052Z ##[group]Operating System
+build	Set up job	2026-05-26T08:35:11.8848986Z Ubuntu
+build	Set up job	2026-05-26T08:35:11.8849755Z 24.04.4
+build	Set up job	2026-05-26T08:35:11.8850478Z LTS
+build	Set up job	2026-05-26T08:35:11.8851385Z ##[endgroup]
+build	Set up job	2026-05-26T08:35:11.8852193Z ##[group]Runner Image
+build	Set up job	2026-05-26T08:35:11.8853243Z Image: ubuntu-24.04
+build	Set up job	2026-05-26T08:35:11.8854113Z Version: 20260518.149.1
+build	Set up job	2026-05-26T08:35:11.8855886Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260518.149/images/ubuntu/Ubuntu2404-Readme.md
+build	Set up job	2026-05-26T08:35:11.8859282Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260518.149
+build	Set up job	2026-05-26T08:35:11.8860940Z ##[endgroup]
+build	Set up job	2026-05-26T08:35:11.8862697Z ##[group]GITHUB_TOKEN Permissions
+build	Set up job	2026-05-26T08:35:11.8865697Z Contents: read
+build	Set up job	2026-05-26T08:35:11.8866519Z Metadata: read
+build	Set up job	2026-05-26T08:35:11.8867345Z Packages: read
+build	Set up job	2026-05-26T08:35:11.8868465Z ##[endgroup]
+build	Set up job	2026-05-26T08:35:11.8871666Z Secret source: Actions
+build	Set up job	2026-05-26T08:35:11.8872736Z Prepare workflow directory
+build	Set up job	2026-05-26T08:35:11.9390277Z Prepare all required actions
+build	Set up job	2026-05-26T08:35:11.9451242Z Getting action download info
+build	Set up job	2026-05-26T08:35:12.3274296Z Download action repository 'actions/checkout@v4' (SHA:34e114876b0b11c390a56381ad16ebd13914f8d5)
+build	Set up job	2026-05-26T08:35:12.4710020Z Download action repository 'actions/setup-java@v4' (SHA:c1e323688fd81a25caa38c78aa6df2d33d3e20d9)
+build	Set up job	2026-05-26T08:35:12.7539705Z Download action repository 'gradle/actions@v4' (SHA:ed408507eac070d1f99cc633dbcf757c94c7933a)
+build	Set up job	2026-05-26T08:35:13.3985490Z Download action repository 'actions/upload-artifact@v4' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
+build	Set up job	2026-05-26T08:35:13.6761833Z Complete job name: build
+build	Checkout Code	锘?026-05-26T08:35:13.7669884Z ##[group]Run actions/checkout@v4
+build	Checkout Code	2026-05-26T08:35:13.7671276Z with:
+build	Checkout Code	2026-05-26T08:35:13.7672134Z   repository: fengzuliaini/dianshijia-lite
+build	Checkout Code	2026-05-26T08:35:13.7673620Z   token: ***
+build	Checkout Code	2026-05-26T08:35:13.7674360Z   ssh-strict: true
+build	Checkout Code	2026-05-26T08:35:13.7675124Z   ssh-user: git
+build	Checkout Code	2026-05-26T08:35:13.7675912Z   persist-credentials: true
+build	Checkout Code	2026-05-26T08:35:13.7676821Z   clean: true
+build	Checkout Code	2026-05-26T08:35:13.7677801Z   sparse-checkout-cone-mode: true
+build	Checkout Code	2026-05-26T08:35:13.7678781Z   fetch-depth: 1
+build	Checkout Code	2026-05-26T08:35:13.7679574Z   fetch-tags: false
+build	Checkout Code	2026-05-26T08:35:13.7680368Z   show-progress: true
+build	Checkout Code	2026-05-26T08:35:13.7681178Z   lfs: false
+build	Checkout Code	2026-05-26T08:35:13.7681895Z   submodules: false
+build	Checkout Code	2026-05-26T08:35:13.7682714Z   set-safe-directory: true
+build	Checkout Code	2026-05-26T08:35:13.7683858Z ##[endgroup]
+build	Checkout Code	2026-05-26T08:35:13.8991303Z Syncing repository: fengzuliaini/dianshijia-lite
+build	Checkout Code	2026-05-26T08:35:13.8996122Z ##[group]Getting Git version info
+build	Checkout Code	2026-05-26T08:35:13.8998838Z Working directory is '/home/runner/work/dianshijia-lite/dianshijia-lite'
+build	Checkout Code	2026-05-26T08:35:13.9001214Z [command]/usr/bin/git version
+build	Checkout Code	2026-05-26T08:35:13.9068948Z git version 2.54.0
+build	Checkout Code	2026-05-26T08:35:13.9115537Z ##[endgroup]
+build	Checkout Code	2026-05-26T08:35:13.9140182Z Temporarily overriding HOME='/home/runner/work/_temp/da4d874a-6092-4f7d-b641-982e1c2bca3a' before making global git config changes
+build	Checkout Code	2026-05-26T08:35:13.9160750Z Adding repository directory to the temporary git global config as a safe directory
+build	Checkout Code	2026-05-26T08:35:13.9163297Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/dianshijia-lite/dianshijia-lite
+build	Checkout Code	2026-05-26T08:35:13.9219967Z Deleting the contents of '/home/runner/work/dianshijia-lite/dianshijia-lite'
+build	Checkout Code	2026-05-26T08:35:13.9224796Z ##[group]Initializing the repository
+build	Checkout Code	2026-05-26T08:35:13.9232335Z [command]/usr/bin/git init /home/runner/work/dianshijia-lite/dianshijia-lite
+build	Checkout Code	2026-05-26T08:35:13.9357571Z hint: Using 'master' as the name for the initial branch. This default branch name
+build	Checkout Code	2026-05-26T08:35:13.9361503Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+build	Checkout Code	2026-05-26T08:35:13.9365534Z hint: to use in all of your new repositories, which will suppress this warning,
+build	Checkout Code	2026-05-26T08:35:13.9368793Z hint: call:
+build	Checkout Code	2026-05-26T08:35:13.9370039Z hint:
+build	Checkout Code	2026-05-26T08:35:13.9371569Z hint: 	git config --global init.defaultBranch <name>
+build	Checkout Code	2026-05-26T08:35:13.9373466Z hint:
+build	Checkout Code	2026-05-26T08:35:13.9375207Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+build	Checkout Code	2026-05-26T08:35:13.9378593Z hint: 'development'. The just-created branch can be renamed via this command:
+build	Checkout Code	2026-05-26T08:35:13.9381062Z hint:
+build	Checkout Code	2026-05-26T08:35:13.9382244Z hint: 	git branch -m <name>
+build	Checkout Code	2026-05-26T08:35:13.9383628Z hint:
+build	Checkout Code	2026-05-26T08:35:13.9385535Z hint: Disable this message with "git config set advice.defaultBranchName false"
+build	Checkout Code	2026-05-26T08:35:13.9388893Z Initialized empty Git repository in /home/runner/work/dianshijia-lite/dianshijia-lite/.git/
+build	Checkout Code	2026-05-26T08:35:13.9392594Z [command]/usr/bin/git remote add origin https://github.com/fengzuliaini/dianshijia-lite
+build	Checkout Code	2026-05-26T08:35:13.9442881Z ##[endgroup]
+build	Checkout Code	2026-05-26T08:35:13.9445310Z ##[group]Disabling automatic garbage collection
+build	Checkout Code	2026-05-26T08:35:13.9447941Z [command]/usr/bin/git config --local gc.auto 0
+build	Checkout Code	2026-05-26T08:35:13.9488691Z ##[endgroup]
+build	Checkout Code	2026-05-26T08:35:13.9491048Z ##[group]Setting up auth
+build	Checkout Code	2026-05-26T08:35:13.9498120Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+build	Checkout Code	2026-05-26T08:35:13.9540459Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+build	Checkout Code	2026-05-26T08:35:13.9981744Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+build	Checkout Code	2026-05-26T08:35:14.0021579Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+build	Checkout Code	2026-05-26T08:35:14.0264452Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+build	Checkout Code	2026-05-26T08:35:14.0304098Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+build	Checkout Code	2026-05-26T08:35:14.0547169Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+build	Checkout Code	2026-05-26T08:35:14.0584407Z ##[endgroup]
+build	Checkout Code	2026-05-26T08:35:14.0585857Z ##[group]Fetching the repository
+build	Checkout Code	2026-05-26T08:35:14.0595112Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +3005e7605f4fb46f0d3a09ed430cd8c048fa3aa8:refs/remotes/origin/master
+build	Checkout Code	2026-05-26T08:35:14.3085801Z From https://github.com/fengzuliaini/dianshijia-lite
+build	Checkout Code	2026-05-26T08:35:14.3088619Z  * [new ref]         3005e7605f4fb46f0d3a09ed430cd8c048fa3aa8 -> origin/master
+build	Checkout Code	2026-05-26T08:35:14.3139706Z ##[endgroup]
+build	Checkout Code	2026-05-26T08:35:14.3141350Z ##[group]Determining the checkout info
+build	Checkout Code	2026-05-26T08:35:14.3143224Z ##[endgroup]
+build	Checkout Code	2026-05-26T08:35:14.3147401Z [command]/usr/bin/git sparse-checkout disable
+build	Checkout Code	2026-05-26T08:35:14.3192474Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+build	Checkout Code	2026-05-26T08:35:14.3219532Z ##[group]Checking out the ref
+build	Checkout Code	2026-05-26T08:35:14.3223562Z [command]/usr/bin/git checkout --progress --force -B master refs/remotes/origin/master
+build	Checkout Code	2026-05-26T08:35:14.3315285Z Reset branch 'master'
+build	Checkout Code	2026-05-26T08:35:14.3317375Z branch 'master' set up to track 'origin/master'.
+build	Checkout Code	2026-05-26T08:35:14.3325827Z ##[endgroup]
+build	Checkout Code	2026-05-26T08:35:14.3364894Z [command]/usr/bin/git log -1 --format=%H
+build	Checkout Code	2026-05-26T08:35:14.3388908Z 3005e7605f4fb46f0d3a09ed430cd8c048fa3aa8
+build	Set up JDK 11	锘?026-05-26T08:35:14.3823954Z ##[group]Run actions/setup-java@v4
+build	Set up JDK 11	2026-05-26T08:35:14.3824963Z with:
+build	Set up JDK 11	2026-05-26T08:35:14.3825627Z   java-version: 11
+build	Set up JDK 11	2026-05-26T08:35:14.3826366Z   distribution: temurin
+build	Set up JDK 11	2026-05-26T08:35:14.3827363Z   cache: gradle
+build	Set up JDK 11	2026-05-26T08:35:14.3828386Z   java-package: jdk
+build	Set up JDK 11	2026-05-26T08:35:14.3829137Z   check-latest: false
+build	Set up JDK 11	2026-05-26T08:35:14.3829893Z   server-id: github
+build	Set up JDK 11	2026-05-26T08:35:14.3830654Z   server-username: GITHUB_ACTOR
+build	Set up JDK 11	2026-05-26T08:35:14.3831543Z   server-password: GITHUB_TOKEN
+build	Set up JDK 11	2026-05-26T08:35:14.3832441Z   overwrite-settings: true
+build	Set up JDK 11	2026-05-26T08:35:14.3833261Z   job-status: success
+build	Set up JDK 11	2026-05-26T08:35:14.3834304Z   token: ***
+build	Set up JDK 11	2026-05-26T08:35:14.3834986Z ##[endgroup]
+build	Set up JDK 11	2026-05-26T08:35:14.5904888Z ##[group]Installed distributions
+build	Set up JDK 11	2026-05-26T08:35:14.5967945Z Resolved Java 11.0.31+11 from tool-cache
+build	Set up JDK 11	2026-05-26T08:35:14.5969809Z Setting Java 11.0.31+11 as the default
+build	Set up JDK 11	2026-05-26T08:35:14.5982888Z Creating toolchains.xml for JDK version 11 from temurin
+build	Set up JDK 11	2026-05-26T08:35:14.6061835Z Writing to /home/runner/.m2/toolchains.xml
+build	Set up JDK 11	2026-05-26T08:35:14.6063318Z 
+build	Set up JDK 11	2026-05-26T08:35:14.6063860Z Java configuration:
+build	Set up JDK 11	2026-05-26T08:35:14.6065169Z   Distribution: temurin
+build	Set up JDK 11	2026-05-26T08:35:14.6066632Z   Version: 11.0.31+11
+build	Set up JDK 11	2026-05-26T08:35:14.6068936Z   Path: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/11.0.31-11/x64
+build	Set up JDK 11	2026-05-26T08:35:14.6070636Z 
+build	Set up JDK 11	2026-05-26T08:35:14.6072233Z ##[endgroup]
+build	Set up JDK 11	2026-05-26T08:35:14.6089778Z Creating settings.xml with server-id: github
+build	Set up JDK 11	2026-05-26T08:35:14.6092065Z Writing to /home/runner/.m2/settings.xml
+build	Set up JDK 11	2026-05-26T08:35:14.7812841Z gradle cache is not found
+build	Setup Gradle	锘?026-05-26T08:35:14.8195443Z ##[group]Run gradle/actions/setup-gradle@v4
+build	Setup Gradle	2026-05-26T08:35:14.8196421Z with:
+build	Setup Gradle	2026-05-26T08:35:14.8197085Z   gradle-version: 7.4
+build	Setup Gradle	2026-05-26T08:35:14.8198020Z   cache-disabled: false
+build	Setup Gradle	2026-05-26T08:35:14.8198783Z   cache-read-only: false
+build	Setup Gradle	2026-05-26T08:35:14.8199570Z   cache-write-only: false
+build	Setup Gradle	2026-05-26T08:35:14.8200390Z   cache-overwrite-existing: false
+build	Setup Gradle	2026-05-26T08:35:14.8201257Z   cache-cleanup: on-success
+build	Setup Gradle	2026-05-26T08:35:14.8202174Z   gradle-home-cache-includes: caches
+build	Setup Gradle	notifications
+build	Setup Gradle	
+build	Setup Gradle	2026-05-26T08:35:14.8203191Z   add-job-summary: always
+build	Setup Gradle	2026-05-26T08:35:14.8204023Z   add-job-summary-as-pr-comment: never
+build	Setup Gradle	2026-05-26T08:35:14.8204960Z   dependency-graph: disabled
+build	Setup Gradle	2026-05-26T08:35:14.8205947Z   dependency-graph-report-dir: dependency-graph-reports
+build	Setup Gradle	2026-05-26T08:35:14.8207087Z   dependency-graph-continue-on-failure: true
+build	Setup Gradle	2026-05-26T08:35:14.8208173Z   build-scan-publish: false
+build	Setup Gradle	2026-05-26T08:35:14.8208983Z   validate-wrappers: true
+build	Setup Gradle	2026-05-26T08:35:14.8209813Z   allow-snapshot-wrappers: false
+build	Setup Gradle	2026-05-26T08:35:14.8210745Z   gradle-home-cache-strict-match: false
+build	Setup Gradle	2026-05-26T08:35:14.8211662Z   workflow-job-context: null
+build	Setup Gradle	2026-05-26T08:35:14.8212797Z   github-token: ***
+build	Setup Gradle	2026-05-26T08:35:14.8213490Z env:
+build	Setup Gradle	2026-05-26T08:35:14.8214436Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/11.0.31-11/x64
+build	Setup Gradle	2026-05-26T08:35:14.8215973Z   JAVA_HOME_11_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/11.0.31-11/x64
+build	Setup Gradle	2026-05-26T08:35:14.8217162Z ##[endgroup]
+build	Setup Gradle	2026-05-26T08:35:15.3609102Z Merged default JDK locations into /home/runner/.m2/toolchains.xml
+build	Setup Gradle	2026-05-26T08:35:15.3610826Z Preparing cache for cleanup.
+build	Setup Gradle	2026-05-26T08:35:15.3615536Z ##[group]Restore Gradle state from cache
+build	Setup Gradle	2026-05-26T08:35:15.4521589Z Cache hit for restore-key: gradle-home-v1|Linux-X64|build[e080f0fdc288b6f0c5023fd4b86f7a10]-504194255e12f13889a2404f623e67360936ff5f
+build	Setup Gradle	2026-05-26T08:35:15.7054404Z Received 11612568 of 11612568 (100.0%), 55.1 MBs/sec
+build	Setup Gradle	2026-05-26T08:35:15.7057360Z Cache Size: ~11 MB (11612568 B)
+build	Setup Gradle	2026-05-26T08:35:15.7100998Z [command]/usr/bin/tar -xf /home/runner/work/_temp/1b248725-3e8c-4981-bdb1-2e298c965a92/cache.tzst -P -C /home/runner/work/dianshijia-lite/dianshijia-lite --use-compress-program unzstd
+build	Setup Gradle	2026-05-26T08:35:15.9098732Z Cache restored successfully
+build	Setup Gradle	2026-05-26T08:35:15.9111529Z Restored cache entry with key gradle-home-v1|Linux-X64|build[e080f0fdc288b6f0c5023fd4b86f7a10]-3005e7605f4fb46f0d3a09ed430cd8c048fa3aa8 to /home/runner/.gradle/caches,/home/runner/.gradle/notifications,/home/runner/.gradle/.setup-gradle in 548ms
+build	Setup Gradle	2026-05-26T08:35:15.9882430Z Cache hit for: gradle-instrumented-jars-v1-f4981a7040a86a9ec8d7a4d5b6e69b0e
+build	Setup Gradle	2026-05-26T08:35:15.9900439Z Cache hit for: gradle-dependencies-v1-33f7aae2870a72780888a64283864360
+build	Setup Gradle	2026-05-26T08:35:16.3141050Z Received 52550975 of 52550975 (100.0%), 167.1 MBs/sec
+build	Setup Gradle	2026-05-26T08:35:16.3142768Z Cache Size: ~50 MB (52550975 B)
+build	Setup Gradle	2026-05-26T08:35:16.3188628Z [command]/usr/bin/tar -xf /home/runner/work/_temp/db98f1e1-2b58-4b8e-a971-536f064bfac7/cache.tzst -P -C /home/runner/work/dianshijia-lite/dianshijia-lite --use-compress-program unzstd
+build	Setup Gradle	2026-05-26T08:35:16.6858722Z Received 94180290 of 94180290 (100.0%), 149.7 MBs/sec
+build	Setup Gradle	2026-05-26T08:35:16.6861965Z Cache Size: ~90 MB (94180290 B)
+build	Setup Gradle	2026-05-26T08:35:16.6884837Z [command]/usr/bin/tar -xf /home/runner/work/_temp/14ae0731-6ba9-43df-a62c-173a382ff7d5/cache.tzst -P -C /home/runner/work/dianshijia-lite/dianshijia-lite --use-compress-program unzstd
+build	Setup Gradle	2026-05-26T08:35:16.7247464Z Cache restored successfully
+build	Setup Gradle	2026-05-26T08:35:16.7284029Z Restored cache entry with key gradle-instrumented-jars-v1-f4981a7040a86a9ec8d7a4d5b6e69b0e to /home/runner/.gradle/caches/jars-*/*/ in 816ms
+build	Setup Gradle	2026-05-26T08:35:16.8856497Z Cache restored successfully
+build	Setup Gradle	2026-05-26T08:35:16.8900734Z Restored cache entry with key gradle-dependencies-v1-33f7aae2870a72780888a64283864360 to /home/runner/.gradle/caches/modules-*/files-*/*/*/*/* in 978ms
+build	Setup Gradle	2026-05-26T08:35:16.8996237Z ##[endgroup]
+build	Setup Gradle	2026-05-26T08:35:16.9057131Z ##[group]All Gradle Wrapper jars are valid
+build	Setup Gradle	2026-05-26T08:35:16.9058175Z 
+build	Setup Gradle	2026-05-26T08:35:16.9059091Z ##[endgroup]
+build	Setup Gradle	2026-05-26T08:35:16.9496890Z ##[group]Provision Gradle 7.4
+build	Setup Gradle	2026-05-26T08:35:20.6716928Z Cache hit for: gradle-7.4
+build	Setup Gradle	2026-05-26T08:35:21.3176811Z Received 115834587 of 115834587 (100.0%), 188.8 MBs/sec
+build	Setup Gradle	2026-05-26T08:35:21.3180260Z Cache Size: ~110 MB (115834587 B)
+build	Setup Gradle	2026-05-26T08:35:21.3213726Z [command]/usr/bin/tar -xf /home/runner/work/_temp/f2b1e323-147d-45fb-8b30-a44d2e790005/cache.tzst -P -C /home/runner/work/dianshijia-lite/dianshijia-lite --use-compress-program unzstd
+build	Setup Gradle	2026-05-26T08:35:21.4696285Z Cache restored successfully
+build	Setup Gradle	2026-05-26T08:35:21.4749861Z Restored Gradle distribution gradle-7.4 from cache to /home/runner/work/_temp/.gradle-actions/gradle-installations/downloads/gradle-7.4-bin.zip
+build	Setup Gradle	2026-05-26T08:35:21.4773712Z [command]/usr/bin/unzip -o -q /home/runner/work/_temp/.gradle-actions/gradle-installations/downloads/gradle-7.4-bin.zip
+build	Setup Gradle	2026-05-26T08:35:22.3008872Z Extracted Gradle 7.4 to /home/runner/work/_temp/.gradle-actions/gradle-installations/installs/gradle-7.4
+build	Setup Gradle	2026-05-26T08:35:22.3010683Z Provisioned Gradle executable /home/runner/work/_temp/.gradle-actions/gradle-installations/installs/gradle-7.4/bin/gradle
+build	Setup Gradle	2026-05-26T08:35:22.3012487Z ##[endgroup]
+build	Build with Gradle	锘?026-05-26T08:35:22.3171801Z ##[group]Run gradle assembleDebug --stacktrace
+build	Build with Gradle	2026-05-26T08:35:22.3172512Z [36;1mgradle assembleDebug --stacktrace[0m
+build	Build with Gradle	2026-05-26T08:35:22.3210973Z shell: /usr/bin/bash -e {0}
+build	Build with Gradle	2026-05-26T08:35:22.3211267Z env:
+build	Build with Gradle	2026-05-26T08:35:22.3211603Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/11.0.31-11/x64
+build	Build with Gradle	2026-05-26T08:35:22.3212125Z   JAVA_HOME_11_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/11.0.31-11/x64
+build	Build with Gradle	2026-05-26T08:35:22.3212581Z   GRADLE_ACTION_ID: gradle/actions/setup-gradle
+build	Build with Gradle	2026-05-26T08:35:22.3212901Z   GRADLE_USER_HOME: /home/runner/.gradle
+build	Build with Gradle	2026-05-26T08:35:22.3213197Z   GRADLE_BUILD_ACTION_SETUP_COMPLETED: true
+build	Build with Gradle	2026-05-26T08:35:22.3213500Z   GRADLE_BUILD_ACTION_CACHE_RESTORED: true
+build	Build with Gradle	2026-05-26T08:35:22.3213947Z   DEVELOCITY_INJECTION_INIT_SCRIPT_NAME: gradle-actions.inject-develocity.init.gradle
+build	Build with Gradle	2026-05-26T08:35:22.3214427Z   DEVELOCITY_INJECTION_CUSTOM_VALUE: gradle-actions
+build	Build with Gradle	2026-05-26T08:35:22.3214743Z   GITHUB_DEPENDENCY_GRAPH_ENABLED: false
+build	Build with Gradle	2026-05-26T08:35:22.3215013Z ##[endgroup]
+build	Build with Gradle	2026-05-26T08:35:23.0866878Z Starting a Gradle Daemon (subsequent builds will be faster)
+build	Build with Gradle	2026-05-26T08:35:36.2853778Z Checking the license for package Android SDK Build-Tools 30.0.3 in /usr/local/lib/android/sdk/licenses
+build	Build with Gradle	2026-05-26T08:35:36.2869044Z License for package Android SDK Build-Tools 30.0.3 accepted.
+build	Build with Gradle	2026-05-26T08:35:36.2870010Z Preparing "Install Android SDK Build-Tools 30.0.3 (revision: 30.0.3)".
+build	Build with Gradle	2026-05-26T08:35:37.5850861Z "Install Android SDK Build-Tools 30.0.3 (revision: 30.0.3)" ready.
+build	Build with Gradle	2026-05-26T08:35:37.5852292Z Installing Android SDK Build-Tools 30.0.3 in /usr/local/lib/android/sdk/build-tools/30.0.3
+build	Build with Gradle	2026-05-26T08:35:37.5859969Z "Install Android SDK Build-Tools 30.0.3 (revision: 30.0.3)" complete.
+build	Build with Gradle	2026-05-26T08:35:38.0872135Z "Install Android SDK Build-Tools 30.0.3 (revision: 30.0.3)" finished.
+build	Build with Gradle	2026-05-26T08:35:38.0891465Z Checking the license for package Android SDK Platform 33 in /usr/local/lib/android/sdk/licenses
+build	Build with Gradle	2026-05-26T08:35:38.0892640Z License for package Android SDK Platform 33 accepted.
+build	Build with Gradle	2026-05-26T08:35:38.0893501Z Preparing "Install Android SDK Platform 33 (revision: 3)".
+build	Build with Gradle	2026-05-26T08:35:40.8853187Z "Install Android SDK Platform 33 (revision: 3)" ready.
+build	Build with Gradle	2026-05-26T08:35:40.8856283Z Installing Android SDK Platform 33 in /usr/local/lib/android/sdk/platforms/android-33
+build	Build with Gradle	2026-05-26T08:35:40.8857411Z "Install Android SDK Platform 33 (revision: 3)" complete.
+build	Build with Gradle	2026-05-26T08:35:40.8858605Z "Install Android SDK Platform 33 (revision: 3)" finished.
+build	Build with Gradle	2026-05-26T08:35:41.2899625Z > Task :app:preBuild UP-TO-DATE
+build	Build with Gradle	2026-05-26T08:35:41.2900549Z > Task :app:preDebugBuild UP-TO-DATE
+build	Build with Gradle	2026-05-26T08:35:41.2901670Z > Task :app:mergeDebugNativeDebugMetadata NO-SOURCE
+build	Build with Gradle	2026-05-26T08:35:41.2902768Z > Task :app:compileDebugAidl NO-SOURCE
+build	Build with Gradle	2026-05-26T08:35:41.2919469Z > Task :app:compileDebugRenderscript NO-SOURCE
+build	Build with Gradle	2026-05-26T08:35:41.3851560Z > Task :app:generateDebugBuildConfig
+build	Build with Gradle	2026-05-26T08:35:41.4852711Z > Task :app:javaPreCompileDebug
+build	Build with Gradle	2026-05-26T08:35:41.8868862Z > Task :app:generateDebugResValues
+build	Build with Gradle	2026-05-26T08:35:41.8881925Z > Task :app:checkDebugAarMetadata
+build	Build with Gradle	2026-05-26T08:35:41.9856485Z > Task :app:mapDebugSourceSetPaths
+build	Build with Gradle	2026-05-26T08:35:41.9858733Z > Task :app:generateDebugResources
+build	Build with Gradle	2026-05-26T08:35:42.8850817Z > Task :app:createDebugCompatibleScreenManifests
+build	Build with Gradle	2026-05-26T08:35:42.9924532Z > Task :app:extractDeepLinksDebug
+build	Build with Gradle	2026-05-26T08:35:43.7878951Z > Task :app:mergeDebugResources
+build	Build with Gradle	2026-05-26T08:35:43.8855717Z 
+build	Build with Gradle	2026-05-26T08:35:43.8865201Z > Task :app:processDebugMainManifest
+build	Build with Gradle	2026-05-26T08:35:43.8866686Z package="com.dianshijia.lite" found in source AndroidManifest.xml: /home/runner/work/dianshijia-lite/dianshijia-lite/app/src/main/AndroidManifest.xml.
+build	Build with Gradle	2026-05-26T08:35:43.8868672Z Setting the namespace via a source AndroidManifest.xml's package attribute is deprecated.
+build	Build with Gradle	2026-05-26T08:35:43.8870661Z Please instead set the namespace (or testNamespace) in the module's build.gradle file, as described here: https://developer.android.com/studio/build/configure-app-module#set-namespace
+build	Build with Gradle	2026-05-26T08:35:43.8873009Z This migration can be done automatically using the AGP Upgrade Assistant, please refer to https://developer.android.com/studio/build/agp-upgrade-assistant for more information.
+build	Build with Gradle	2026-05-26T08:35:44.2888302Z 
+build	Build with Gradle	2026-05-26T08:35:44.2891024Z > Task :app:processDebugManifest
+build	Build with Gradle	2026-05-26T08:35:44.2899726Z > Task :app:mergeDebugShaders
+build	Build with Gradle	2026-05-26T08:35:44.3854359Z > Task :app:compileDebugShaders NO-SOURCE
+build	Build with Gradle	2026-05-26T08:35:44.3855597Z > Task :app:generateDebugAssets UP-TO-DATE
+build	Build with Gradle	2026-05-26T08:35:44.3856379Z > Task :app:mergeDebugAssets
+build	Build with Gradle	2026-05-26T08:35:44.3859154Z > Task :app:compressDebugAssets
+build	Build with Gradle	2026-05-26T08:35:44.3880731Z > Task :app:processDebugJavaRes NO-SOURCE
+build	Build with Gradle	2026-05-26T08:35:47.3888625Z > Task :app:checkDebugDuplicateClasses
+build	Build with Gradle	2026-05-26T08:35:47.4851640Z > Task :app:mergeDebugJavaResource
+build	Build with Gradle	2026-05-26T08:35:49.1850227Z > Task :app:desugarDebugFileDependencies
+build	Build with Gradle	2026-05-26T08:36:14.2868886Z > Task :app:processDebugManifestForPackage
+build	Build with Gradle	2026-05-26T08:36:16.9889083Z > Task :app:mergeDebugJniLibFolders
+build	Build with Gradle	2026-05-26T08:36:17.0858775Z > Task :app:mergeDebugNativeLibs NO-SOURCE
+build	Build with Gradle	2026-05-26T08:36:17.0859459Z > Task :app:stripDebugDebugSymbols NO-SOURCE
+build	Build with Gradle	2026-05-26T08:36:19.1850106Z > Task :app:mergeExtDexDebug
+build	Build with Gradle	2026-05-26T08:36:19.2897122Z ERROR:D8: Cannot fit requested classes in a single dex file (# methods: 74322 > 65536)
+build	Build with Gradle	2026-05-26T08:36:19.2897996Z 
+build	Build with Gradle	2026-05-26T08:36:19.2939568Z com.android.builder.dexing.DexArchiveMergerException: Error while merging dex archives: 
+build	Build with Gradle	2026-05-26T08:36:19.2940731Z > Task :app:mergeExtDexDebug FAILED
+build	Build with Gradle	2026-05-26T08:36:19.2989307Z The number of method references in a .dex file cannot exceed 64K.
+build	Build with Gradle	2026-05-26T08:36:19.3000143Z Learn how to resolve this issue at https://developer.android.com/tools/building/multidex.html
+build	Build with Gradle	2026-05-26T08:36:19.3001687Z 	at com.android.builder.dexing.D8DexArchiveMerger.getExceptionToRethrow(D8DexArchiveMerger.java:151)
+build	Build with Gradle	2026-05-26T08:36:19.3003016Z 	at com.android.builder.dexing.D8DexArchiveMerger.mergeDexArchives(D8DexArchiveMerger.java:138)
+build	Build with Gradle	2026-05-26T08:36:19.3004271Z 	at com.android.build.gradle.internal.tasks.DexMergingWorkAction.merge(DexMergingTask.kt:859)
+build	Build with Gradle	2026-05-26T08:36:19.3005581Z 	at com.android.build.gradle.internal.tasks.DexMergingWorkAction.run(DexMergingTask.kt:805)
+build	Build with Gradle	2026-05-26T08:36:19.3006986Z 	at com.android.build.gradle.internal.profile.ProfileAwareWorkAction.execute(ProfileAwareWorkAction.kt:74)
+build	Build with Gradle	2026-05-26T08:36:19.3008607Z 	at org.gradle.workers.internal.DefaultWorkerServer.execute(DefaultWorkerServer.java:63)
+build	Build with Gradle	2026-05-26T08:36:19.3009936Z 	at org.gradle.workers.internal.NoIsolationWorkerFactory$1$1.create(NoIsolationWorkerFactory.java:66)
+build	Build with Gradle	2026-05-26T08:36:19.3011301Z 	at org.gradle.workers.internal.NoIsolationWorkerFactory$1$1.create(NoIsolationWorkerFactory.java:62)
+build	Build with Gradle	2026-05-26T08:36:19.3012787Z 	at org.gradle.internal.classloader.ClassLoaderUtils.executeInClassloader(ClassLoaderUtils.java:97)
+build	Build with Gradle	2026-05-26T08:36:19.3014197Z 	at org.gradle.workers.internal.NoIsolationWorkerFactory$1.lambda$execute$0(NoIsolationWorkerFactory.java:62)
+build	Build with Gradle	2026-05-26T08:36:19.3015439Z 	at org.gradle.workers.internal.AbstractWorker$1.call(AbstractWorker.java:44)
+build	Build with Gradle	2026-05-26T08:36:19.3016506Z 	at org.gradle.workers.internal.AbstractWorker$1.call(AbstractWorker.java:41)
+build	Build with Gradle	2026-05-26T08:36:19.3018168Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:204)
+build	Build with Gradle	2026-05-26T08:36:19.3022645Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:199)
+build	Build with Gradle	2026-05-26T08:36:19.3045221Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:66)
+build	Build with Gradle	2026-05-26T08:36:19.3046893Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:59)
+build	Build with Gradle	2026-05-26T08:36:19.3048863Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:157)
+build	Build with Gradle	2026-05-26T08:36:19.3050477Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:59)
+build	Build with Gradle	2026-05-26T08:36:19.3052486Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner.call(DefaultBuildOperationRunner.java:53)
+build	Build with Gradle	2026-05-26T08:36:19.3054079Z 	at org.gradle.internal.operations.DefaultBuildOperationExecutor.call(DefaultBuildOperationExecutor.java:73)
+build	Build with Gradle	2026-05-26T08:36:19.3055634Z 	at org.gradle.workers.internal.AbstractWorker.executeWrappedInBuildOperation(AbstractWorker.java:41)
+build	Build with Gradle	2026-05-26T08:36:19.3057140Z 	at org.gradle.workers.internal.NoIsolationWorkerFactory$1.execute(NoIsolationWorkerFactory.java:59)
+build	Build with Gradle	2026-05-26T08:36:19.3058872Z 	at org.gradle.workers.internal.DefaultWorkerExecutor.lambda$submitWork$2(DefaultWorkerExecutor.java:205)
+build	Build with Gradle	2026-05-26T08:36:19.3060153Z 	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:264)
+build	Build with Gradle	2026-05-26T08:36:19.3061616Z 	at org.gradle.internal.work.DefaultConditionalExecutionQueue$ExecutionRunner.runExecution(DefaultConditionalExecutionQueue.java:187)
+build	Build with Gradle	2026-05-26T08:36:19.3063517Z 	at org.gradle.internal.work.DefaultConditionalExecutionQueue$ExecutionRunner.access$700(DefaultConditionalExecutionQueue.java:120)
+build	Build with Gradle	2026-05-26T08:36:19.3065462Z 	at org.gradle.internal.work.DefaultConditionalExecutionQueue$ExecutionRunner$1.run(DefaultConditionalExecutionQueue.java:162)
+build	Build with Gradle	2026-05-26T08:36:19.3066841Z 	at org.gradle.internal.Factories$1.create(Factories.java:31)
+build	Build with Gradle	2026-05-26T08:36:19.3068250Z 	at org.gradle.internal.work.DefaultWorkerLeaseService.withLocks(DefaultWorkerLeaseService.java:270)
+build	Build with Gradle	2026-05-26T08:36:19.3070499Z 	at org.gradle.internal.work.DefaultWorkerLeaseService.runAsWorkerThread(DefaultWorkerLeaseService.java:119)
+build	Build with Gradle	2026-05-26T08:36:19.3072154Z 	at org.gradle.internal.work.DefaultWorkerLeaseService.runAsWorkerThread(DefaultWorkerLeaseService.java:124)
+build	Build with Gradle	2026-05-26T08:36:19.3073924Z 	at org.gradle.internal.work.DefaultConditionalExecutionQueue$ExecutionRunner.runBatch(DefaultConditionalExecutionQueue.java:157)
+build	Build with Gradle	2026-05-26T08:36:19.3075827Z 	at org.gradle.internal.work.DefaultConditionalExecutionQueue$ExecutionRunner.run(DefaultConditionalExecutionQueue.java:126)
+build	Build with Gradle	2026-05-26T08:36:19.3077391Z 	at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:515)
+build	Build with Gradle	2026-05-26T08:36:19.3078823Z 	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:264)
+build	Build with Gradle	2026-05-26T08:36:19.3080024Z 	at org.gradle.internal.concurrent.ExecutorPolicy$CatchAndRecordFailures.onExecute(ExecutorPolicy.java:64)
+build	Build with Gradle	2026-05-26T08:36:19.3081545Z 	at org.gradle.internal.concurrent.ManagedExecutorImpl$1.run(ManagedExecutorImpl.java:48)
+build	Build with Gradle	2026-05-26T08:36:19.3085834Z 	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1128)
+build	Build with Gradle	2026-05-26T08:36:19.3087260Z 	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:628)
+build	Build with Gradle	2026-05-26T08:36:19.3088668Z 	at java.base/java.lang.Thread.run(Thread.java:829)
+build	Build with Gradle	2026-05-26T08:36:19.3089814Z Caused by: com.android.tools.r8.CompilationFailedException: Compilation failed to complete, position: null
+build	Build with Gradle	2026-05-26T08:36:19.3090970Z 	at Version.fakeStackEntry(Version_3.3.83.java:0)
+build	Build with Gradle	2026-05-26T08:36:19.3092125Z 	at com.android.tools.r8.internal.Hj.a(R8_3.3.83_3e328a3bbd0c840823c96123eb0f6192f0adf17b30ae46f695be39af0bc3505e:75)
+build	Build with Gradle	2026-05-26T08:36:19.3093879Z 	at com.android.tools.r8.internal.Hj.a(R8_3.3.83_3e328a3bbd0c840823c96123eb0f6192f0adf17b30ae46f695be39af0bc3505e:28)
+build	Build with Gradle	2026-05-26T08:36:19.3103110Z 	at com.android.tools.r8.internal.Hj.a(R8_3.3.83_3e328a3bbd0c840823c96123eb0f6192f0adf17b30ae46f695be39af0bc3505e:27)
+build	Build with Gradle	2026-05-26T08:36:19.3104709Z 	at com.android.tools.r8.internal.Hj.b(R8_3.3.83_3e328a3bbd0c840823c96123eb0f6192f0adf17b30ae46f695be39af0bc3505e:2)
+build	Build with Gradle	2026-05-26T08:36:19.3106160Z 	at com.android.tools.r8.D8.run(R8_3.3.83_3e328a3bbd0c840823c96123eb0f6192f0adf17b30ae46f695be39af0bc3505e:11)
+build	Build with Gradle	2026-05-26T08:36:19.3107824Z 	at com.android.builder.dexing.D8DexArchiveMerger.mergeDexArchives(D8DexArchiveMerger.java:136)
+build	Build with Gradle	2026-05-26T08:36:19.3108892Z 	... 38 more
+build	Build with Gradle	2026-05-26T08:36:19.3109840Z Caused by: com.android.tools.r8.internal.f: Cannot fit requested classes in a single dex file (# methods: 74322 > 65536)
+build	Build with Gradle	2026-05-26T08:36:19.3112214Z 	at com.android.tools.r8.internal.LT.a(R8_3.3.83_3e328a3bbd0c840823c96123eb0f6192f0adf17b30ae46f695be39af0bc3505e:14)
+build	Build with Gradle	2026-05-26T08:36:19.3113572Z 	at com.android.tools.r8.internal.LT.a(R8_3.3.83_3e328a3bbd0c840823c96123eb0f6192f0adf17b30ae46f695be39af0bc3505e:22)
+build	Build with Gradle	2026-05-26T08:36:19.3114911Z 	at com.android.tools.r8.internal.q30.a(R8_3.3.83_3e328a3bbd0c840823c96123eb0f6192f0adf17b30ae46f695be39af0bc3505e:524)
+build	Build with Gradle	2026-05-26T08:36:19.3116787Z 	at com.android.tools.r8.internal.l30.a(R8_3.3.83_3e328a3bbd0c840823c96123eb0f6192f0adf17b30ae46f695be39af0bc3505e:7)
+build	Build with Gradle	2026-05-26T08:36:19.3118450Z 	at com.android.tools.r8.internal.F2.a(R8_3.3.83_3e328a3bbd0c840823c96123eb0f6192f0adf17b30ae46f695be39af0bc3505e:371)
+build	Build with Gradle	2026-05-26T08:36:19.3119799Z 	at com.android.tools.r8.internal.F2.a(R8_3.3.83_3e328a3bbd0c840823c96123eb0f6192f0adf17b30ae46f695be39af0bc3505e:455)
+build	Build with Gradle	2026-05-26T08:36:19.3121075Z 	at com.android.tools.r8.D8.d(R8_3.3.83_3e328a3bbd0c840823c96123eb0f6192f0adf17b30ae46f695be39af0bc3505e:756)
+build	Build with Gradle	2026-05-26T08:36:19.3122515Z 	at com.android.tools.r8.D8.b(R8_3.3.83_3e328a3bbd0c840823c96123eb0f6192f0adf17b30ae46f695be39af0bc3505e:1)
+build	Build with Gradle	2026-05-26T08:36:19.3123790Z 	at com.android.tools.r8.internal.Hj.a(R8_3.3.83_3e328a3bbd0c840823c96123eb0f6192f0adf17b30ae46f695be39af0bc3505e:24)
+build	Build with Gradle	2026-05-26T08:36:19.3124856Z 	... 41 more
+build	Build with Gradle	2026-05-26T08:36:19.3125538Z 
+build	Build with Gradle	2026-05-26T08:36:19.3856696Z > Task :app:validateSigningDebug
+build	Build with Gradle	2026-05-26T08:36:19.3898195Z 
+build	Build with Gradle	2026-05-26T08:36:19.3916064Z FAILURE: Build failed with an exception.
+build	Build with Gradle	2026-05-26T08:36:19.3917173Z gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/__run-1779784526994.json
+build	Build with Gradle	2026-05-26T08:36:19.3933592Z 
+build	Build with Gradle	2026-05-26T08:36:19.3974555Z * What went wrong:
+build	Build with Gradle	2026-05-26T08:36:19.4002117Z Execution failed for task ':app:mergeExtDexDebug'.
+build	Build with Gradle	2026-05-26T08:36:19.4028991Z > A failure occurred while executing com.android.build.gradle.internal.tasks.DexMergingTaskDelegate
+build	Build with Gradle	2026-05-26T08:36:19.4058641Z    > There was a failure while executing work items
+build	Build with Gradle	2026-05-26T08:36:19.4104756Z       > A failure occurred while executing com.android.build.gradle.internal.tasks.DexMergingWorkAction
+build	Build with Gradle	2026-05-26T08:36:19.4106135Z          > com.android.builder.dexing.DexArchiveMergerException: Error while merging dex archives: 
+build	Build with Gradle	2026-05-26T08:36:19.4107139Z            The number of method references in a .dex file cannot exceed 64K.
+build	Build with Gradle	2026-05-26T08:36:19.4108383Z            Learn how to resolve this issue at https://developer.android.com/tools/building/multidex.html
+build	Build with Gradle	2026-05-26T08:36:19.4109043Z 
+build	Build with Gradle	2026-05-26T08:36:19.4109188Z * Try:
+build	Build with Gradle	2026-05-26T08:36:19.4109621Z > Run with --info or --debug option to get more log output.
+build	Build with Gradle	2026-05-26T08:36:19.4110230Z > Run with --scan to get full insights.
+build	Build with Gradle	2026-05-26T08:36:19.4110709Z 
+build	Build with Gradle	2026-05-26T08:36:19.4110860Z * Exception is:
+build	Build with Gradle	2026-05-26T08:36:19.4116550Z org.gradle.api.tasks.TaskExecutionException: Execution failed for task ':app:mergeExtDexDebug'.
+build	Build with Gradle	2026-05-26T08:36:19.4118557Z 	at org.gradle.api.internal.tasks.execution.ExecuteActionsTaskExecuter.lambda$executeIfValid$1(ExecuteActionsTaskExecuter.java:147)
+build	Build with Gradle	2026-05-26T08:36:19.4119944Z 	at org.gradle.internal.Try$Failure.ifSuccessfulOrElse(Try.java:282)
+build	Build with Gradle	2026-05-26T08:36:19.4121228Z 	at org.gradle.api.internal.tasks.execution.ExecuteActionsTaskExecuter.executeIfValid(ExecuteActionsTaskExecuter.java:145)
+build	Build with Gradle	2026-05-26T08:36:19.4122914Z 	at org.gradle.api.internal.tasks.execution.ExecuteActionsTaskExecuter.execute(ExecuteActionsTaskExecuter.java:133)
+build	Build with Gradle	2026-05-26T08:36:19.4124536Z 	at org.gradle.api.internal.tasks.execution.CleanupStaleOutputsExecuter.execute(CleanupStaleOutputsExecuter.java:77)
+build	Build with Gradle	2026-05-26T08:36:19.4126228Z 	at org.gradle.api.internal.tasks.execution.FinalizePropertiesTaskExecuter.execute(FinalizePropertiesTaskExecuter.java:46)
+build	Build with Gradle	2026-05-26T08:36:19.4128151Z 	at org.gradle.api.internal.tasks.execution.ResolveTaskExecutionModeExecuter.execute(ResolveTaskExecutionModeExecuter.java:51)
+build	Build with Gradle	2026-05-26T08:36:19.4130685Z 	at org.gradle.api.internal.tasks.execution.SkipTaskWithNoActionsExecuter.execute(SkipTaskWithNoActionsExecuter.java:57)
+build	Build with Gradle	2026-05-26T08:36:19.4137354Z 	at org.gradle.api.internal.tasks.execution.SkipOnlyIfTaskExecuter.execute(SkipOnlyIfTaskExecuter.java:56)
+build	Build with Gradle	2026-05-26T08:36:19.4139249Z 	at org.gradle.api.internal.tasks.execution.CatchExceptionTaskExecuter.execute(CatchExceptionTaskExecuter.java:36)
+build	Build with Gradle	2026-05-26T08:36:19.4140774Z 	at org.gradle.api.internal.tasks.execution.EventFiringTaskExecuter$1.executeTask(EventFiringTaskExecuter.java:77)
+build	Build with Gradle	2026-05-26T08:36:19.4142219Z 	at org.gradle.api.internal.tasks.execution.EventFiringTaskExecuter$1.call(EventFiringTaskExecuter.java:55)
+build	Build with Gradle	2026-05-26T08:36:19.4143746Z 	at org.gradle.api.internal.tasks.execution.EventFiringTaskExecuter$1.call(EventFiringTaskExecuter.java:52)
+build	Build with Gradle	2026-05-26T08:36:19.4145414Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:204)
+build	Build with Gradle	2026-05-26T08:36:19.4147325Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:199)
+build	Build with Gradle	2026-05-26T08:36:19.4149322Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:66)
+build	Build with Gradle	2026-05-26T08:36:19.4150794Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:59)
+build	Build with Gradle	2026-05-26T08:36:19.4152526Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:157)
+build	Build with Gradle	2026-05-26T08:36:19.4154003Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:59)
+build	Build with Gradle	2026-05-26T08:36:19.4155443Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner.call(DefaultBuildOperationRunner.java:53)
+build	Build with Gradle	2026-05-26T08:36:19.4156893Z 	at org.gradle.internal.operations.DefaultBuildOperationExecutor.call(DefaultBuildOperationExecutor.java:73)
+build	Build with Gradle	2026-05-26T08:36:19.4158560Z 	at org.gradle.api.internal.tasks.execution.EventFiringTaskExecuter.execute(EventFiringTaskExecuter.java:52)
+build	Build with Gradle	2026-05-26T08:36:19.4159912Z 	at org.gradle.execution.plan.LocalTaskNodeExecutor.execute(LocalTaskNodeExecutor.java:74)
+build	Build with Gradle	2026-05-26T08:36:19.4161378Z 	at org.gradle.execution.taskgraph.DefaultTaskExecutionGraph$InvokeNodeExecutorsAction.execute(DefaultTaskExecutionGraph.java:333)
+build	Build with Gradle	2026-05-26T08:36:19.4163140Z 	at org.gradle.execution.taskgraph.DefaultTaskExecutionGraph$InvokeNodeExecutorsAction.execute(DefaultTaskExecutionGraph.java:320)
+build	Build with Gradle	2026-05-26T08:36:19.4165004Z 	at org.gradle.execution.taskgraph.DefaultTaskExecutionGraph$BuildOperationAwareExecutionAction.execute(DefaultTaskExecutionGraph.java:313)
+build	Build with Gradle	2026-05-26T08:36:19.4166944Z 	at org.gradle.execution.taskgraph.DefaultTaskExecutionGraph$BuildOperationAwareExecutionAction.execute(DefaultTaskExecutionGraph.java:299)
+build	Build with Gradle	2026-05-26T08:36:19.4168741Z 	at org.gradle.execution.plan.DefaultPlanExecutor$ExecutorWorker.lambda$run$0(DefaultPlanExecutor.java:143)
+build	Build with Gradle	2026-05-26T08:36:19.4170084Z 	at org.gradle.execution.plan.DefaultPlanExecutor$ExecutorWorker.execute(DefaultPlanExecutor.java:227)
+build	Build with Gradle	2026-05-26T08:36:19.4171473Z 	at org.gradle.execution.plan.DefaultPlanExecutor$ExecutorWorker.executeNextNode(DefaultPlanExecutor.java:218)
+build	Build with Gradle	2026-05-26T08:36:19.4172870Z 	at org.gradle.execution.plan.DefaultPlanExecutor$ExecutorWorker.run(DefaultPlanExecutor.java:140)
+build	Build with Gradle	2026-05-26T08:36:19.4174066Z 	at org.gradle.execution.plan.DefaultPlanExecutor.process(DefaultPlanExecutor.java:72)
+build	Build with Gradle	2026-05-26T08:36:19.4175512Z 	at org.gradle.execution.taskgraph.DefaultTaskExecutionGraph.executeWithServices(DefaultTaskExecutionGraph.java:144)
+build	Build with Gradle	2026-05-26T08:36:19.4177528Z 	at org.gradle.execution.taskgraph.DefaultTaskExecutionGraph.execute(DefaultTaskExecutionGraph.java:129)
+build	Build with Gradle	2026-05-26T08:36:19.4179197Z 	at org.gradle.execution.SelectedTaskExecutionAction.execute(SelectedTaskExecutionAction.java:42)
+build	Build with Gradle	2026-05-26T08:36:19.4180498Z 	at org.gradle.execution.DryRunBuildExecutionAction.execute(DryRunBuildExecutionAction.java:51)
+build	Build with Gradle	2026-05-26T08:36:19.4182057Z 	at org.gradle.execution.BuildOperationFiringBuildWorkerExecutor$ExecuteTasks.call(BuildOperationFiringBuildWorkerExecutor.java:54)
+build	Build with Gradle	2026-05-26T08:36:19.4184330Z 	at org.gradle.execution.BuildOperationFiringBuildWorkerExecutor$ExecuteTasks.call(BuildOperationFiringBuildWorkerExecutor.java:43)
+build	Build with Gradle	2026-05-26T08:36:19.4186210Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:204)
+build	Build with Gradle	2026-05-26T08:36:19.4188306Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:199)
+build	Build with Gradle	2026-05-26T08:36:19.4189982Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:66)
+build	Build with Gradle	2026-05-26T08:36:19.4191434Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:59)
+build	Build with Gradle	2026-05-26T08:36:19.4850274Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:157)
+build	Build with Gradle	2026-05-26T08:36:19.4860075Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:59)
+build	Build with Gradle	2026-05-26T08:36:19.4861943Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner.call(DefaultBuildOperationRunner.java:53)
+build	Build with Gradle	2026-05-26T08:36:19.4863615Z 	at org.gradle.internal.operations.DefaultBuildOperationExecutor.call(DefaultBuildOperationExecutor.java:73)
+build	Build with Gradle	2026-05-26T08:36:19.4865805Z 	at org.gradle.execution.BuildOperationFiringBuildWorkerExecutor.execute(BuildOperationFiringBuildWorkerExecutor.java:40)
+build	Build with Gradle	2026-05-26T08:36:19.4867849Z 	at org.gradle.internal.build.DefaultBuildLifecycleController.lambda$executeTasks$7(DefaultBuildLifecycleController.java:165)
+build	Build with Gradle	2026-05-26T08:36:19.4892238Z 	at org.gradle.internal.model.StateTransitionController.doTransition(StateTransitionController.java:238)
+build	Build with Gradle	2026-05-26T08:36:19.4949126Z 	at org.gradle.internal.model.StateTransitionController.lambda$tryTransition$8(StateTransitionController.java:174)
+build	Build with Gradle	2026-05-26T08:36:19.4950301Z 20 actionable tasks: 20 executed
+build	Build with Gradle	2026-05-26T08:36:19.4959134Z 	at org.gradle.internal.work.DefaultSynchronizer.withLock(DefaultSynchronizer.java:44)
+build	Build with Gradle	2026-05-26T08:36:19.4960663Z 	at org.gradle.internal.model.StateTransitionController.tryTransition(StateTransitionController.java:174)
+build	Build with Gradle	2026-05-26T08:36:19.4962345Z 	at org.gradle.internal.build.DefaultBuildLifecycleController.executeTasks(DefaultBuildLifecycleController.java:165)
+build	Build with Gradle	2026-05-26T08:36:19.4964249Z 	at org.gradle.internal.build.DefaultBuildWorkGraphController$DefaultBuildWorkGraph.runWork(DefaultBuildWorkGraphController.java:142)
+build	Build with Gradle	2026-05-26T08:36:19.4966159Z 	at org.gradle.composite.internal.DefaultBuildController.doBuild(DefaultBuildController.java:231)
+build	Build with Gradle	2026-05-26T08:36:19.4967296Z 	at org.gradle.internal.Factories$1.create(Factories.java:31)
+build	Build with Gradle	2026-05-26T08:36:19.4968865Z 	at org.gradle.internal.work.DefaultWorkerLeaseService.withLocks(DefaultWorkerLeaseService.java:270)
+build	Build with Gradle	2026-05-26T08:36:19.4970329Z 	at org.gradle.internal.work.DefaultWorkerLeaseService.runAsWorkerThread(DefaultWorkerLeaseService.java:119)
+build	Build with Gradle	2026-05-26T08:36:19.4971887Z 	at org.gradle.internal.work.DefaultWorkerLeaseService.runAsWorkerThread(DefaultWorkerLeaseService.java:124)
+build	Build with Gradle	2026-05-26T08:36:19.4973296Z 	at org.gradle.composite.internal.DefaultBuildController.doRun(DefaultBuildController.java:204)
+build	Build with Gradle	2026-05-26T08:36:19.4974611Z 	at org.gradle.composite.internal.DefaultBuildController.access$000(DefaultBuildController.java:51)
+build	Build with Gradle	2026-05-26T08:36:19.4976011Z 	at org.gradle.composite.internal.DefaultBuildController$BuildOpRunnable.run(DefaultBuildController.java:264)
+build	Build with Gradle	2026-05-26T08:36:19.4977415Z 	at org.gradle.internal.concurrent.ExecutorPolicy$CatchAndRecordFailures.onExecute(ExecutorPolicy.java:64)
+build	Build with Gradle	2026-05-26T08:36:19.4979112Z 	at org.gradle.internal.concurrent.ManagedExecutorImpl$1.run(ManagedExecutorImpl.java:48)
+build	Build with Gradle	2026-05-26T08:36:19.4980857Z Caused by: org.gradle.workers.internal.DefaultWorkerExecutor$WorkExecutionException: A failure occurred while executing com.android.build.gradle.internal.tasks.DexMergingTaskDelegate
+build	Build with Gradle	2026-05-26T08:36:19.4983063Z 	at org.gradle.workers.internal.DefaultWorkerExecutor.lambda$submitWork$2(DefaultWorkerExecutor.java:207)
+build	Build with Gradle	2026-05-26T08:36:19.4984614Z 	at org.gradle.internal.work.DefaultConditionalExecutionQueue$ExecutionRunner.runExecution(DefaultConditionalExecutionQueue.java:187)
+build	Build with Gradle	2026-05-26T08:36:19.4986368Z 	at org.gradle.internal.work.DefaultConditionalExecutionQueue$ExecutionRunner.access$700(DefaultConditionalExecutionQueue.java:120)
+build	Build with Gradle	2026-05-26T08:36:19.4988298Z 	at org.gradle.internal.work.DefaultConditionalExecutionQueue$ExecutionRunner$1.run(DefaultConditionalExecutionQueue.java:162)
+build	Build with Gradle	2026-05-26T08:36:19.4989577Z 	at org.gradle.internal.Factories$1.create(Factories.java:31)
+build	Build with Gradle	2026-05-26T08:36:19.4990699Z 	at org.gradle.internal.work.DefaultWorkerLeaseService.withLocks(DefaultWorkerLeaseService.java:270)
+build	Build with Gradle	2026-05-26T08:36:19.4992269Z 	at org.gradle.internal.work.DefaultWorkerLeaseService.runAsWorkerThread(DefaultWorkerLeaseService.java:119)
+build	Build with Gradle	2026-05-26T08:36:19.4993930Z 	at org.gradle.internal.work.DefaultWorkerLeaseService.runAsWorkerThread(DefaultWorkerLeaseService.java:124)
+build	Build with Gradle	2026-05-26T08:36:19.4995705Z 	at org.gradle.internal.work.DefaultConditionalExecutionQueue$ExecutionRunner.runBatch(DefaultConditionalExecutionQueue.java:157)
+build	Build with Gradle	2026-05-26T08:36:19.4997753Z 	at org.gradle.internal.work.DefaultConditionalExecutionQueue$ExecutionRunner.run(DefaultConditionalExecutionQueue.java:126)
+build	Build with Gradle	2026-05-26T08:36:19.4999860Z 	at org.gradle.internal.concurrent.ExecutorPolicy$CatchAndRecordFailures.onExecute(ExecutorPolicy.java:64)
+build	Build with Gradle	2026-05-26T08:36:19.5001330Z 	at org.gradle.internal.concurrent.ManagedExecutorImpl$1.run(ManagedExecutorImpl.java:48)
+build	Build with Gradle	2026-05-26T08:36:19.5002702Z Caused by: org.gradle.workers.WorkerExecutionException: There was a failure while executing work items
+build	Build with Gradle	2026-05-26T08:36:19.5004248Z 	at org.gradle.workers.internal.DefaultWorkerExecutor.workerExecutionException(DefaultWorkerExecutor.java:267)
+build	Build with Gradle	2026-05-26T08:36:19.5005739Z 	at org.gradle.workers.internal.DefaultWorkerExecutor.await(DefaultWorkerExecutor.java:249)
+build	Build with Gradle	2026-05-26T08:36:19.5007184Z 	at org.gradle.workers.internal.NoIsolationWorkerFactory$1.lambda$execute$0(NoIsolationWorkerFactory.java:72)
+build	Build with Gradle	2026-05-26T08:36:19.5008811Z 	at org.gradle.workers.internal.AbstractWorker$1.call(AbstractWorker.java:44)
+build	Build with Gradle	2026-05-26T08:36:19.5009914Z 	at org.gradle.workers.internal.AbstractWorker$1.call(AbstractWorker.java:41)
+build	Build with Gradle	2026-05-26T08:36:19.5011486Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:204)
+build	Build with Gradle	2026-05-26T08:36:19.5013499Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:199)
+build	Build with Gradle	2026-05-26T08:36:19.5015299Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:66)
+build	Build with Gradle	2026-05-26T08:36:19.5016898Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:59)
+build	Build with Gradle	2026-05-26T08:36:19.5018825Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:157)
+build	Build with Gradle	2026-05-26T08:36:19.5020422Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:59)
+build	Build with Gradle	2026-05-26T08:36:19.5021989Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner.call(DefaultBuildOperationRunner.java:53)
+build	Build with Gradle	2026-05-26T08:36:19.5023567Z 	at org.gradle.internal.operations.DefaultBuildOperationExecutor.call(DefaultBuildOperationExecutor.java:73)
+build	Build with Gradle	2026-05-26T08:36:19.5025129Z 	at org.gradle.workers.internal.AbstractWorker.executeWrappedInBuildOperation(AbstractWorker.java:41)
+build	Build with Gradle	2026-05-26T08:36:19.5026605Z 	at org.gradle.workers.internal.NoIsolationWorkerFactory$1.execute(NoIsolationWorkerFactory.java:59)
+build	Build with Gradle	2026-05-26T08:36:19.5028222Z 	at org.gradle.workers.internal.DefaultWorkerExecutor.lambda$submitWork$2(DefaultWorkerExecutor.java:205)
+build	Build with Gradle	2026-05-26T08:36:19.5029244Z 	... 11 more
+build	Build with Gradle	2026-05-26T08:36:19.5030652Z Caused by: org.gradle.workers.internal.DefaultWorkerExecutor$WorkExecutionException: A failure occurred while executing com.android.build.gradle.internal.tasks.DexMergingWorkAction
+build	Build with Gradle	2026-05-26T08:36:19.5033070Z 	at org.gradle.workers.internal.DefaultWorkerExecutor$WorkItemExecution.waitForCompletion(DefaultWorkerExecutor.java:339)
+build	Build with Gradle	2026-05-26T08:36:19.5034841Z 	at org.gradle.internal.work.DefaultAsyncWorkTracker.lambda$waitForItemsAndGatherFailures$2(DefaultAsyncWorkTracker.java:131)
+build	Build with Gradle	2026-05-26T08:36:19.5036162Z 	at org.gradle.internal.Factories$1.create(Factories.java:31)
+build	Build with Gradle	2026-05-26T08:36:19.5037332Z 	at org.gradle.internal.work.DefaultWorkerLeaseService.withoutLocks(DefaultWorkerLeaseService.java:341)
+build	Build with Gradle	2026-05-26T08:36:19.5039118Z 	at org.gradle.internal.work.DefaultWorkerLeaseService.withoutLocks(DefaultWorkerLeaseService.java:326)
+build	Build with Gradle	2026-05-26T08:36:19.5040738Z 	at org.gradle.internal.work.DefaultAsyncWorkTracker.waitForItemsAndGatherFailures(DefaultAsyncWorkTracker.java:127)
+build	Build with Gradle	2026-05-26T08:36:19.5042509Z 	at org.gradle.internal.work.DefaultAsyncWorkTracker.waitForItemsAndGatherFailures(DefaultAsyncWorkTracker.java:89)
+build	Build with Gradle	2026-05-26T08:36:19.5044075Z 	at org.gradle.internal.work.DefaultAsyncWorkTracker.waitForAll(DefaultAsyncWorkTracker.java:79)
+build	Build with Gradle	2026-05-26T08:36:19.5045520Z 	at org.gradle.internal.work.DefaultAsyncWorkTracker.waitForCompletion(DefaultAsyncWorkTracker.java:67)
+build	Build with Gradle	2026-05-26T08:36:19.5047127Z 	at org.gradle.workers.internal.DefaultWorkerExecutor.await(DefaultWorkerExecutor.java:247)
+build	Build with Gradle	2026-05-26T08:36:19.5048252Z 	... 25 more
+build	Build with Gradle	2026-05-26T08:36:19.5049461Z Caused by: com.android.build.api.transform.TransformException: com.android.builder.dexing.DexArchiveMergerException: Error while merging dex archives: 
+build	Build with Gradle	2026-05-26T08:36:19.5050944Z The number of method references in a .dex file cannot exceed 64K.
+build	Build with Gradle	2026-05-26T08:36:19.5051972Z Learn how to resolve this issue at https://developer.android.com/tools/building/multidex.html
+build	Build with Gradle	2026-05-26T08:36:19.5053263Z 	at com.android.build.gradle.internal.tasks.DexMergingWorkAction.merge(DexMergingTask.kt:872)
+build	Build with Gradle	2026-05-26T08:36:19.5054549Z 	at com.android.build.gradle.internal.tasks.DexMergingWorkAction.run(DexMergingTask.kt:805)
+build	Build with Gradle	2026-05-26T08:36:19.5055929Z 	at com.android.build.gradle.internal.profile.ProfileAwareWorkAction.execute(ProfileAwareWorkAction.kt:74)
+build	Build with Gradle	2026-05-26T08:36:19.5057444Z 	at org.gradle.workers.internal.DefaultWorkerServer.execute(DefaultWorkerServer.java:63)
+build	Build with Gradle	2026-05-26T08:36:19.5059010Z 	at org.gradle.workers.internal.NoIsolationWorkerFactory$1$1.create(NoIsolationWorkerFactory.java:66)
+build	Build with Gradle	2026-05-26T08:36:19.5060423Z 	at org.gradle.workers.internal.NoIsolationWorkerFactory$1$1.create(NoIsolationWorkerFactory.java:62)
+build	Build with Gradle	2026-05-26T08:36:19.5061927Z 	at org.gradle.internal.classloader.ClassLoaderUtils.executeInClassloader(ClassLoaderUtils.java:97)
+build	Build with Gradle	2026-05-26T08:36:19.5063424Z 	at org.gradle.workers.internal.NoIsolationWorkerFactory$1.lambda$execute$0(NoIsolationWorkerFactory.java:62)
+build	Build with Gradle	2026-05-26T08:36:19.5064488Z 	... 24 more
+build	Build with Gradle	2026-05-26T08:36:19.5065444Z Caused by: com.android.builder.dexing.DexArchiveMergerException: Error while merging dex archives: 
+build	Build with Gradle	2026-05-26T08:36:19.5066671Z The number of method references in a .dex file cannot exceed 64K.
+build	Build with Gradle	2026-05-26T08:36:19.5067910Z Learn how to resolve this issue at https://developer.android.com/tools/building/multidex.html
+build	Build with Gradle	2026-05-26T08:36:19.5069176Z 	at com.android.builder.dexing.D8DexArchiveMerger.getExceptionToRethrow(D8DexArchiveMerger.java:151)
+build	Build with Gradle	2026-05-26T08:36:19.5070632Z 	at com.android.builder.dexing.D8DexArchiveMerger.mergeDexArchives(D8DexArchiveMerger.java:138)
+build	Build with Gradle	2026-05-26T08:36:19.5071838Z 	at com.android.build.gradle.internal.tasks.DexMergingWorkAction.merge(DexMergingTask.kt:859)
+build	Build with Gradle	2026-05-26T08:36:19.5072718Z 	... 31 more
+build	Build with Gradle	2026-05-26T08:36:19.5073524Z Caused by: com.android.tools.r8.CompilationFailedException: Compilation failed to complete, position: null
+build	Build with Gradle	2026-05-26T08:36:19.5074493Z 	at Version.fakeStackEntry(Version_3.3.83.java:0)
+build	Build with Gradle	2026-05-26T08:36:19.5075579Z 	at com.android.tools.r8.internal.Hj.a(R8_3.3.83_3e328a3bbd0c840823c96123eb0f6192f0adf17b30ae46f695be39af0bc3505e:75)
+build	Build with Gradle	2026-05-26T08:36:19.5077479Z 	at com.android.tools.r8.internal.Hj.a(R8_3.3.83_3e328a3bbd0c840823c96123eb0f6192f0adf17b30ae46f695be39af0bc3505e:28)
+build	Build with Gradle	2026-05-26T08:36:19.5079182Z 	at com.android.tools.r8.internal.Hj.a(R8_3.3.83_3e328a3bbd0c840823c96123eb0f6192f0adf17b30ae46f695be39af0bc3505e:27)
+build	Build with Gradle	2026-05-26T08:36:19.5080711Z 	at com.android.tools.r8.internal.Hj.b(R8_3.3.83_3e328a3bbd0c840823c96123eb0f6192f0adf17b30ae46f695be39af0bc3505e:2)
+build	Build with Gradle	2026-05-26T08:36:19.5082168Z 	at com.android.tools.r8.D8.run(R8_3.3.83_3e328a3bbd0c840823c96123eb0f6192f0adf17b30ae46f695be39af0bc3505e:11)
+build	Build with Gradle	2026-05-26T08:36:19.5083567Z 	at com.android.builder.dexing.D8DexArchiveMerger.mergeDexArchives(D8DexArchiveMerger.java:136)
+build	Build with Gradle	2026-05-26T08:36:19.5084569Z 	... 32 more
+build	Build with Gradle	2026-05-26T08:36:19.5085503Z Caused by: com.android.tools.r8.internal.f: Cannot fit requested classes in a single dex file (# methods: 74322 > 65536)
+build	Build with Gradle	2026-05-26T08:36:19.5087039Z 	at com.android.tools.r8.internal.LT.a(R8_3.3.83_3e328a3bbd0c840823c96123eb0f6192f0adf17b30ae46f695be39af0bc3505e:14)
+build	Build with Gradle	2026-05-26T08:36:19.5088760Z 	at com.android.tools.r8.internal.LT.a(R8_3.3.83_3e328a3bbd0c840823c96123eb0f6192f0adf17b30ae46f695be39af0bc3505e:22)
+build	Build with Gradle	2026-05-26T08:36:19.5090310Z 	at com.android.tools.r8.internal.q30.a(R8_3.3.83_3e328a3bbd0c840823c96123eb0f6192f0adf17b30ae46f695be39af0bc3505e:524)
+build	Build with Gradle	2026-05-26T08:36:19.5092068Z 	at com.android.tools.r8.internal.l30.a(R8_3.3.83_3e328a3bbd0c840823c96123eb0f6192f0adf17b30ae46f695be39af0bc3505e:7)
+build	Build with Gradle	2026-05-26T08:36:19.5093601Z 	at com.android.tools.r8.internal.F2.a(R8_3.3.83_3e328a3bbd0c840823c96123eb0f6192f0adf17b30ae46f695be39af0bc3505e:371)
+build	Build with Gradle	2026-05-26T08:36:19.5095126Z 	at com.android.tools.r8.internal.F2.a(R8_3.3.83_3e328a3bbd0c840823c96123eb0f6192f0adf17b30ae46f695be39af0bc3505e:455)
+build	Build with Gradle	2026-05-26T08:36:19.5096583Z 	at com.android.tools.r8.D8.d(R8_3.3.83_3e328a3bbd0c840823c96123eb0f6192f0adf17b30ae46f695be39af0bc3505e:756)
+build	Build with Gradle	2026-05-26T08:36:19.5098204Z 	at com.android.tools.r8.D8.b(R8_3.3.83_3e328a3bbd0c840823c96123eb0f6192f0adf17b30ae46f695be39af0bc3505e:1)
+build	Build with Gradle	2026-05-26T08:36:19.5099717Z 	at com.android.tools.r8.internal.Hj.a(R8_3.3.83_3e328a3bbd0c840823c96123eb0f6192f0adf17b30ae46f695be39af0bc3505e:24)
+build	Build with Gradle	2026-05-26T08:36:19.5100712Z 	... 35 more
+build	Build with Gradle	2026-05-26T08:36:19.5101031Z 
+build	Build with Gradle	2026-05-26T08:36:19.5101166Z 
+build	Build with Gradle	2026-05-26T08:36:19.5101490Z * Get more help at https://help.gradle.org
+build	Build with Gradle	2026-05-26T08:36:19.5101970Z 
+build	Build with Gradle	2026-05-26T08:36:19.5102239Z BUILD FAILED in 57s
+build	Build with Gradle	2026-05-26T08:36:19.8890123Z ##[error]Process completed with exit code 1.
+build	Post Setup Gradle	锘?026-05-26T08:36:19.9166258Z Post job cleanup.
+build	Post Setup Gradle	2026-05-26T08:36:20.3826374Z In post-action step
+build	Post Setup Gradle	2026-05-26T08:36:20.3841308Z ##[group]Stopping Gradle daemons
+build	Post Setup Gradle	2026-05-26T08:36:20.3842567Z Stopping Gradle daemons for /home/runner/work/_temp/.gradle-actions/gradle-installations/installs/gradle-7.4
+build	Post Setup Gradle	2026-05-26T08:36:20.3866644Z [command]/home/runner/work/_temp/.gradle-actions/gradle-installations/installs/gradle-7.4/bin/gradle --stop
+build	Post Setup Gradle	2026-05-26T08:36:21.5097376Z Stopping Daemon(s)
+build	Post Setup Gradle	2026-05-26T08:36:21.5098282Z 1 Daemon stopped
+build	Post Setup Gradle	2026-05-26T08:36:21.5352248Z ##[endgroup]
+build	Post Setup Gradle	2026-05-26T08:36:21.5353117Z Not performing cache-cleanup due to build failure
+build	Post Setup Gradle	2026-05-26T08:36:21.5354288Z ##[group]Caching Gradle state
+build	Post Setup Gradle	2026-05-26T08:36:21.9612528Z [command]/usr/bin/tar --posix -cf cache.tzst --exclude cache.tzst -P -C /home/runner/work/dianshijia-lite/dianshijia-lite --files-from manifest.txt --use-compress-program zstdmt
+build	Post Setup Gradle	2026-05-26T08:36:22.1460494Z [command]/usr/bin/tar --posix -cf cache.tzst --exclude cache.tzst -P -C /home/runner/work/dianshijia-lite/dianshijia-lite --files-from manifest.txt --use-compress-program zstdmt
+build	Post Setup Gradle	2026-05-26T08:36:23.8008993Z Sent 98922730 of 98922730 (100.0%), 94.2 MBs/sec
+build	Post Setup Gradle	2026-05-26T08:36:23.8055909Z Sent 52583629 of 52583629 (100.0%), 51.8 MBs/sec
+build	Post Setup Gradle	2026-05-26T08:36:24.0010462Z Saved cache entry with key gradle-instrumented-jars-v1-9c283149c2a5462f31e5112b07317595 from /home/runner/.gradle/caches/jars-*/*/ in 2130ms
+build	Post Setup Gradle	2026-05-26T08:36:24.1695127Z Saved cache entry with key gradle-dependencies-v1-be5f64689929005ad6aec9fe8f037dc4 from /home/runner/.gradle/caches/modules-*/files-*/*/*/*/* in 2351ms
+build	Post Setup Gradle	2026-05-26T08:36:24.2535898Z [command]/usr/bin/tar --posix -cf cache.tzst --exclude cache.tzst -P -C /home/runner/work/dianshijia-lite/dianshijia-lite --files-from manifest.txt --use-compress-program zstdmt
+build	Post Setup Gradle	2026-05-26T08:36:25.0096468Z Sent 26692597 of 26692597 (100.0%), 54.3 MBs/sec
+build	Post Setup Gradle	2026-05-26T08:36:25.1503033Z Saved cache entry with key gradle-home-v1|Linux-X64|build[e080f0fdc288b6f0c5023fd4b86f7a10]-3005e7605f4fb46f0d3a09ed430cd8c048fa3aa8 from /home/runner/.gradle/caches,/home/runner/.gradle/notifications,/home/runner/.gradle/.setup-gradle in 907ms
+build	Post Setup Gradle	2026-05-26T08:36:25.1505368Z ##[endgroup]
+build	Post Setup Gradle	2026-05-26T08:36:25.1510387Z Generating Job Summary
+build	Post Setup Gradle	2026-05-26T08:36:25.1524322Z Completed post-action step
+build	Post Set up JDK 11	锘?026-05-26T08:36:25.1709554Z Post job cleanup.
+build	Post Checkout Code	锘?026-05-26T08:36:25.3545476Z Post job cleanup.
+build	Post Checkout Code	2026-05-26T08:36:25.4642585Z [command]/usr/bin/git version
+build	Post Checkout Code	2026-05-26T08:36:25.4680418Z git version 2.54.0
+build	Post Checkout Code	2026-05-26T08:36:25.4728289Z Temporarily overriding HOME='/home/runner/work/_temp/1a9197ad-3012-4354-9cfe-c47e722181ca' before making global git config changes
+build	Post Checkout Code	2026-05-26T08:36:25.4729792Z Adding repository directory to the temporary git global config as a safe directory
+build	Post Checkout Code	2026-05-26T08:36:25.4743129Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/dianshijia-lite/dianshijia-lite
+build	Post Checkout Code	2026-05-26T08:36:25.4781218Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+build	Post Checkout Code	2026-05-26T08:36:25.4816432Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+build	Post Checkout Code	2026-05-26T08:36:25.5054279Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+build	Post Checkout Code	2026-05-26T08:36:25.5080295Z http.https://github.com/.extraheader
+build	Post Checkout Code	2026-05-26T08:36:25.5093826Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+build	Post Checkout Code	2026-05-26T08:36:25.5125675Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+build	Post Checkout Code	2026-05-26T08:36:25.5356198Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+build	Post Checkout Code	2026-05-26T08:36:25.5389783Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+build	Complete job	锘?026-05-26T08:36:25.5736730Z Cleaning up orphan processes
+build	Complete job	2026-05-26T08:36:25.6165021Z ##[warning]Node.js 20 actions are deprecated. The following actions are running on Node.js 20 and may not work as expected: actions/checkout@v4, actions/setup-java@v4, gradle/actions/setup-gradle@v4. Actions will be forced to run with Node.js 24 by default starting June 2nd, 2026. Node.js 20 will be removed from the runner on September 16th, 2026. Please check if updated versions of these actions are available that support Node.js 24. To opt into Node.js 24 now, set the FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true environment variable on the runner or in your workflow file. Once Node.js 24 becomes the default, you can temporarily opt out by setting ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

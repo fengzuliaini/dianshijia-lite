@@ -23,7 +23,7 @@ import okhttp3.Request;
 import okhttp3.Response;
 
 /**
- * M3U 播放列表解析器，支持网络异步拉取与本地缓存读取。
+ * M3U 播放列表解析器（重构去重版：支持同一个频道的直播/回看多线路收集）
  */
 public class M3uParser {
     private static final String TAG = "M3uParser";
@@ -34,9 +34,6 @@ public class M3uParser {
         void onParseFailed(Exception e);
     }
 
-    /**
-     * 加载直播源列表：优先在线请求，失败时加载本地缓存
-     */
     public static void loadChannels(final Context context, final String m3uUrl, final OnParseListener listener) {
         OkHttpClient client = new OkHttpClient();
         Request request = new Request.Builder()
@@ -47,7 +44,6 @@ public class M3uParser {
             @Override
             public void onFailure(Call call, IOException e) {
                 Log.e(TAG, "Request failed, fallback to local cache", e);
-                // 离线状态或网络异常：读取本地缓存
                 tryLocalCache(context, listener, e);
             }
 
@@ -60,9 +56,7 @@ public class M3uParser {
                 }
 
                 String content = response.body().string();
-                // 缓存到本地
                 saveToCache(context, content);
-                // 解析
                 parseM3u(content, listener);
             }
         });
@@ -104,17 +98,20 @@ public class M3uParser {
     }
 
     /**
-     * 解析 M3U 字符串的核心逻辑
+     * 解析 M3U 并进行去重合并及多线路整合
      */
     private static void parseM3u(String content, OnParseListener listener) {
         LinkedHashMap<String, List<Channel>> groupedChannels = new LinkedHashMap<>();
         List<Channel> allChannels = new ArrayList<>();
+        
+        // 用于合并去重的 Map，Key 格式为 "分类组名_频道名"
+        Map<String, Channel> channelMap = new LinkedHashMap<>();
 
         BufferedReader reader = null;
         try {
             reader = new BufferedReader(new StringReader(content));
             String line;
-            String currentGroup = "其他频道"; // 默认分组名
+            String currentGroup = "其他频道";
             String currentName = "";
             int channelCounter = 1;
 
@@ -136,7 +133,7 @@ public class M3uParser {
                         }
                     }
 
-                    // 解析频道名称（通常在最后一个逗号之后）
+                    // 解析频道名称
                     int commaIndex = line.lastIndexOf(",");
                     if (commaIndex != -1 && commaIndex < line.length() - 1) {
                         currentName = line.substring(commaIndex + 1).trim();
@@ -144,23 +141,37 @@ public class M3uParser {
                         currentName = "未知频道";
                     }
                 } else if (!line.startsWith("#")) {
-                    // 直播流播放链接地址
                     String playUrl = line;
                     if (!currentName.isEmpty() && playUrl.startsWith("http")) {
-                        // 格式化频道编号为 3 位，如 "001", "002"
-                        String numberStr = String.format("%03d", channelCounter++);
-                        Channel channel = new Channel(numberStr, currentName, playUrl, currentGroup);
+                        String key = currentGroup + "_" + currentName;
+                        Channel channel = channelMap.get(key);
                         
-                        allChannels.add(channel);
+                        // 如果是第一次遇到该频道，则新建频道对象
+                        if (channel == null) {
+                            String numberStr = String.format("%03d", channelCounter++);
+                            channel = new Channel(numberStr, currentName, currentGroup);
+                            channelMap.put(key, channel);
+                            
+                            allChannels.add(channel);
 
-                        // 按分类分组存储
-                        if (!groupedChannels.containsKey(currentGroup)) {
-                            groupedChannels.put(currentGroup, new ArrayList<Channel>());
+                            if (!groupedChannels.containsKey(currentGroup)) {
+                                groupedChannels.put(currentGroup, new ArrayList<Channel>());
+                            }
+                            groupedChannels.get(currentGroup).add(channel);
                         }
-                        groupedChannels.get(currentGroup).add(channel);
+
+                        // 将 URL 分类添加进对应的直播列表或回看列表，避免重复添加相同 URL
+                        if (playUrl.contains("/TVOD/")) {
+                            if (!channel.getTvodUrls().contains(playUrl)) {
+                                channel.getTvodUrls().add(playUrl);
+                            }
+                        } else {
+                            if (!channel.getLiveUrls().contains(playUrl)) {
+                                channel.getLiveUrls().add(playUrl);
+                            }
+                        }
                     }
-                    // 重置，防止 URL 行没有对应的 EXTINF
-                    currentName = "";
+                    currentName = ""; // 重置
                 }
             }
 
