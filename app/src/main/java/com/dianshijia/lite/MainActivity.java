@@ -1090,8 +1090,9 @@ public class MainActivity extends AppCompatActivity {
 
     private String proxyUrlIfNeeded(String url) {
         if (url == null) return null;
-        // 仅对 Android 4.4 及以下设备且以 https:// 开头的源使用本地回环 HTTP 代理，消除 HTTPS 协议在老系统上的握手/解析瓶颈
-        if (android.os.Build.VERSION.SDK_INT <= 20 && url.startsWith("https://")) {
+        // V1.3.0: 对 Android 4.4 及以下设备 (API ≤ 20)，HTTP 和 HTTPS 全量代理
+        // 因为老设备的 HttpURLConnection 处理 302 重定向、长 token URL 有已知 Bug
+        if (android.os.Build.VERSION.SDK_INT <= 20 && (url.startsWith("http://") || url.startsWith("https://"))) {
             if (proxyServer != null && proxyServer.isRunning()) {
                 String encodedUrl = android.net.Uri.encode(url);
                 return "http://127.0.0.1:" + proxyServer.getPort() + "/proxy?url=" + encodedUrl;
@@ -1288,7 +1289,9 @@ public class MainActivity extends AppCompatActivity {
         public LocalProxyServer() {
             okhttp3.OkHttpClient.Builder builder = new okhttp3.OkHttpClient.Builder()
                 .followRedirects(true)
-                .followSslRedirects(true);
+                .followSslRedirects(true)
+                .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+                .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS);
             
             if (android.os.Build.VERSION.SDK_INT >= 16 && android.os.Build.VERSION.SDK_INT <= 20) {
                 try {
@@ -1341,17 +1344,45 @@ public class MainActivity extends AppCompatActivity {
             }
         }
 
-        private String rewriteHttpsUrlsInM3u8(String content, int localPort) {
-            java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("https://[^\\s#]+");
-            java.util.regex.Matcher matcher = pattern.matcher(content);
-            StringBuffer sb = new StringBuffer();
-            while (matcher.find()) {
-                String originalUrl = matcher.group();
-                String encodedUrl = android.net.Uri.encode(originalUrl);
-                String proxyUrl = "http://127.0.0.1:" + localPort + "/proxy?url=" + encodedUrl;
-                matcher.appendReplacement(sb, java.util.regex.Matcher.quoteReplacement(proxyUrl));
+        /**
+         * V1.3.0: 逐行解析 M3U8 内容，对每一行非注释 URL 行进行代理改写。
+         * 同时支持绝对路径 (http:// / https://) 和相对路径 (如 segment.ts?xxx)。
+         * @param content M3U8 原始文本
+         * @param localPort 本地代理端口
+         * @param finalBaseUrl OkHttp 跟随 302 重定向后的最终 URL，用于解析相对路径
+         */
+        private String rewriteM3u8Content(String content, int localPort, String finalBaseUrl) {
+            // 计算 base URL (去掉最后一个 / 之后的文件名部分)
+            String baseUrl = "";
+            if (finalBaseUrl != null) {
+                int lastSlash = finalBaseUrl.lastIndexOf('/');
+                if (lastSlash > 0) {
+                    baseUrl = finalBaseUrl.substring(0, lastSlash + 1);
+                }
             }
-            matcher.appendTail(sb);
+
+            String[] lines = content.split("\n");
+            StringBuilder sb = new StringBuilder();
+            for (String line : lines) {
+                String trimmed = line.trim();
+                if (trimmed.isEmpty() || trimmed.startsWith("#")) {
+                    // 注释行 / 空行保持原样
+                    sb.append(line).append("\n");
+                } else {
+                    // URL 行：可能是绝对路径或相对路径
+                    String absoluteUrl;
+                    if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+                        absoluteUrl = trimmed;
+                    } else {
+                        // 相对路径，基于最终重定向 URL 拼接
+                        absoluteUrl = baseUrl + trimmed;
+                    }
+                    // 改写为本地代理地址
+                    String encodedUrl = android.net.Uri.encode(absoluteUrl);
+                    String proxyUrl = "http://127.0.0.1:" + localPort + "/proxy?url=" + encodedUrl;
+                    sb.append(proxyUrl).append("\n");
+                }
+            }
             return sb.toString();
         }
 
@@ -1376,7 +1407,7 @@ public class MainActivity extends AppCompatActivity {
                 }
 
                 String targetUrl = android.net.Uri.decode(path.substring(urlIndex + 4));
-                Log.d("LocalProxyServer", "Proxying HTTPS request for: " + targetUrl);
+                Log.d("LocalProxyServer", "Proxying request for: " + targetUrl);
 
                 okhttp3.Request request = new okhttp3.Request.Builder()
                         .url(targetUrl)
@@ -1384,6 +1415,10 @@ public class MainActivity extends AppCompatActivity {
                         .build();
 
                 okhttp3.Response response = okHttpClient.newCall(request).execute();
+
+                // V1.3.0: 获取 OkHttp 跟随 302 重定向后的最终 URL，用于 M3U8 相对路径的 base 拼接
+                String finalUrl = response.request().url().toString();
+                Log.d("LocalProxyServer", "Final URL after redirects: " + finalUrl);
                 
                 String statusLine = "HTTP/1.1 " + response.code() + " " + response.message() + "\r\n";
                 out.write(statusLine.getBytes());
@@ -1394,14 +1429,14 @@ public class MainActivity extends AppCompatActivity {
                 }
 
                 // 智能判定是否是 HLS (M3U8) 索引流
-                boolean isM3u8 = targetUrl.contains(".m3u8") || 
+                boolean isM3u8 = targetUrl.contains(".m3u8") || finalUrl.contains(".m3u8") ||
                                  (contentType != null && (contentType.toString().contains("mpegurl") || contentType.toString().contains("mpegURL")));
 
                 if (isM3u8 && response.body() != null) {
                     // 读取 M3U8 的全部文本
                     String m3u8Content = response.body().string();
-                    // 核心爆改：将其中所有的绝对路径 HTTPS 切片地址重写为本地 HTTP 代理地址，全量接管二级拉流
-                    String rewrittenContent = rewriteHttpsUrlsInM3u8(m3u8Content, port);
+                    // V1.3.0 核心：使用最终 URL 作为 base，逐行改写所有 URL（含相对路径）为本地代理地址
+                    String rewrittenContent = rewriteM3u8Content(m3u8Content, port, finalUrl);
                     
                     byte[] m3u8Bytes = rewrittenContent.getBytes("UTF-8");
                     out.write(("Content-Type: " + (contentType != null ? contentType.toString() : "application/vnd.apple.mpegurl") + "\r\n").getBytes());
