@@ -5,7 +5,6 @@
         <item name="android:windowNoTitle">true</item>
         <item name="android:windowFullscreen">true</item>
         <item name="android:windowContentOverlay">@null</item>
-        <item name="android:background">@color/black</item>
         <!-- 保持屏幕常亮 -->
         <item name="android:keepScreenOn">true</item>
     </style>

@@ -177,6 +177,9 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        if (player != null && playerView != null) {
+            playerView.setPlayer(player);
+        }
         // 启动进度条轮询刷新
         tvHandler.post(updateProgressAction);
     }
@@ -184,6 +187,9 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onPause() {
         super.onPause();
+        if (playerView != null) {
+            playerView.setPlayer(null);
+        }
         tvHandler.removeCallbacks(updateProgressAction);
     }
 
