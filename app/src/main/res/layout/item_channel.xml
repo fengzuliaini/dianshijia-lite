@@ -7,8 +7,7 @@
     android:paddingLeft="20dp"
     android:paddingRight="20dp"
     android:background="@drawable/selector_item"
-    android:focusable="true"
-    android:clickable="true">
+    android:focusable="true">
 
     <!-- 台号：突出显示的亮金黄色 -->
     <TextView
