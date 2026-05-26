@@ -130,6 +130,18 @@ public class MainActivity extends AppCompatActivity {
         layoutNumberInput = findViewById(R.id.layout_number_input);
         textNumberInput = findViewById(R.id.text_number_input);
 
+        // 触屏交互支持：点按全屏视频画面切换显示/隐藏左侧频道侧边栏
+        playerView.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (isSidebarShowing) {
+                    hideSidebar();
+                } else {
+                    showSidebar();
+                }
+            }
+        });
+
         // 初始化列表及其适配器
         categoryAdapter = new CategoryAdapter();
         listCategories.setAdapter(categoryAdapter);
@@ -155,6 +167,9 @@ public class MainActivity extends AppCompatActivity {
         listCategories.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                if (position >= 0 && position < categories.size()) {
+                    updateChannelList(categories.get(position));
+                }
                 // 分类选定后，自动把遥控焦点移到右侧频道列表
                 listChannels.requestFocus();
                 resetSidebarHideTimer();
