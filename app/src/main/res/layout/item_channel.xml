@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="60dp"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:paddingLeft="20dp"
+    android:paddingRight="20dp"
+    android:background="@drawable/selector_item"
+    android:focusable="true"
+    android:clickable="true">
+
+    <!-- 台号：突出显示的亮金黄色 -->
+    <TextView
+        android:id="@+id/text_channel_number"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        android:textColor="@color/accent_gold"
+        android:layout_marginRight="15dp" />
+
+    <!-- 频道名称：白色 -->
+    <TextView
+        android:id="@+id/text_channel_name"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:textSize="18sp"
+        android:textColor="@color/white"
+        android:singleLine="true"
+        android:ellipsize="end" />
+</LinearLayout>

@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/black">
+
+    <!-- 全屏 ExoPlayer 播放器组件 -->
+    <com.google.android.exoplayer2.ui.PlayerView
+        android:id="@+id/player_view"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:use_controller="false"
+        app:resize_mode="fit" />
+
+    <!-- 侧边栏频道选择菜单：包含分类列表与频道列表 -->
+    <LinearLayout
+        android:id="@+id/layout_sidebar"
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:orientation="horizontal"
+        android:visibility="gone"
+        android:background="@android:color/transparent">
+
+        <!-- 左半部：分类列表 -->
+        <ListView
+            android:id="@+id/list_categories"
+            android:layout_width="150dp"
+            android:layout_height="match_parent"
+            android:background="@color/bg_sidebar"
+            android:divider="@null"
+            android:scrollbars="none"
+            android:choiceMode="singleChoice" />
+
+        <!-- 右半部：具体频道列表 -->
+        <ListView
+            android:id="@+id/list_channels"
+            android:layout_width="260dp"
+            android:layout_height="match_parent"
+            android:background="@color/bg_sidebar_sub"
+            android:divider="@null"
+            android:scrollbars="none"
+            android:choiceMode="singleChoice" />
+    </LinearLayout>
+
+    <!-- 右上角换台时的频道信息提示框 -->
+    <LinearLayout
+        android:id="@+id/layout_info_overlay"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|right"
+        android:layout_marginTop="30dp"
+        android:layout_marginRight="40dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingLeft="20dp"
+        android:paddingRight="20dp"
+        android:paddingTop="12dp"
+        android:paddingBottom="12dp"
+        android:background="@color/bg_overlay"
+        android:visibility="gone">
+
+        <!-- 提示框中的金黄色台号 -->
+        <TextView
+            android:id="@+id/text_overlay_num"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="26sp"
+            android:textColor="@color/accent_gold"
+            android:textStyle="bold"
+            android:layout_marginRight="10dp" />
+
+        <!-- 提示框中的频道名 -->
+        <TextView
+            android:id="@+id/text_overlay_name"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="22sp"
+            android:textColor="@color/white" />
+    </LinearLayout>
+
+    <!-- 屏幕中央视频缓冲加载中浮层 -->
+    <LinearLayout
+        android:id="@+id/layout_loading"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:paddingLeft="30dp"
+        android:paddingRight="30dp"
+        android:paddingTop="20dp"
+        android:paddingBottom="20dp"
+        android:background="@color/bg_overlay">
+
+        <ProgressBar
+            android:id="@+id/progress_loading"
+            android:layout_width="45dp"
+            android:layout_height="45dp"
+            android:layout_marginBottom="12dp" />
+
+        <TextView
+            android:id="@+id/text_loading_status"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/loading_stream"
+            android:textColor="@color/white"
+            android:textSize="16sp" />
+    </LinearLayout>
+
+    <!-- 数字按键直接换台的巨型提示框 -->
+    <LinearLayout
+        android:id="@+id/layout_number_input"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:paddingLeft="40dp"
+        android:paddingRight="40dp"
+        android:paddingTop="25dp"
+        android:paddingBottom="25dp"
+        android:background="@color/bg_overlay"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/text_number_input"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="72sp"
+            android:textColor="@color/accent_gold"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+</FrameLayout>

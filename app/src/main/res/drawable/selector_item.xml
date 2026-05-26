@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 遥控器焦点选中状态：高亮宝蓝色 -->
+    <item android:state_focused="true" android:drawable="@color/bg_focus" />
+    
+    <!-- 当前播放的已选中状态（无遥控器焦点）：淡蓝色背景 -->
+    <item android:state_selected="true" android:state_focused="false" android:drawable="@color/bg_select" />
+    
+    <!-- 默认未激活状态：透明 -->
+    <item android:drawable="@android:color/transparent" />
+</selector>

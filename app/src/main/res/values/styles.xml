@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 沉浸式电视直播主题，继承自 AppCompat 并去除标题栏，设置全屏 -->
+    <style name="Theme.DianshijiaLite" parent="Theme.AppCompat.NoActionBar">
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:windowContentOverlay">@null</item>
+        <item name="android:background">@color/black</item>
+        <!-- 保持屏幕常亮 -->
+        <item name="android:keepScreenOn">true</item>
+    </style>
+</resources>

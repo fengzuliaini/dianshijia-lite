@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+    
+    <!-- TV 主题色彩系统 -->
+    <color name="bg_sidebar">#E6121212</color>      <!-- 90% 浓度的深灰黑侧边栏背景 -->
+    <color name="bg_sidebar_sub">#E61C1C1E</color>  <!-- 频道列表背景，稍亮 -->
+    <color name="bg_focus">#FF007AFF</color>        <!-- 聚焦高亮：苹果蓝 -->
+    <color name="bg_select">#33007AFF</color>       <!-- 已选频道：淡蓝色高亮 -->
+    <color name="text_focus">#FFFFFFFF</color>       <!-- 聚焦时的文字颜色 -->
+    <color name="text_normal">#FFBBBBBB</color>      <!-- 正常状态下的文字颜色 -->
+    <color name="bg_overlay">#B3000000</color>      <!-- 台号与信息提示框半透明背景 -->
+    <color name="accent_gold">#FFFFCC00</color>      <!-- 台号高亮金黄色 -->
+</resources>
