@@ -107,6 +107,7 @@ public class MainActivity extends AppCompatActivity {
 
     private long tempSeekPosition = -1; // 缓动 Seek 的临时进度值
     private Runnable autoSwitchLineRunnable = null; // 自动换源/换线任务
+    private LocalProxyServer proxyServer;
 
     // 真正执行 Seek 跳转的 Action (缓动 Seek)
     private final Runnable confirmSeekAction = new Runnable() {
@@ -168,6 +169,15 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         enableTls12Helper();
+        
+        // 启动本地 Https 兼容代理服务，为老电视提供零协议与解密门槛的 HTTP 回环流
+        try {
+            proxyServer = new LocalProxyServer();
+            proxyServer.start();
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to start local proxy server", e);
+        }
+
         setContentView(R.layout.activity_main);
 
         initViews();
@@ -570,6 +580,8 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
+        url = proxyUrlIfNeeded(url);
+
         MediaItem mediaItem = MediaItem.fromUri(url);
         player.setMediaItem(mediaItem);
         player.prepare();
@@ -614,6 +626,8 @@ public class MainActivity extends AppCompatActivity {
         // 拼接 IPTV TVOD playseek 回看协议参数：URL 末尾追加 playseek=开始时间-结束时间
         String separator = tvodBaseUrl.contains("?") ? "&" : "?";
         String catchupUrl = tvodBaseUrl + separator + "playseek=" + program.beginTime + "-" + program.endTime;
+
+        catchupUrl = proxyUrlIfNeeded(catchupUrl);
 
         Log.i(TAG, "Playing catchup URL: " + catchupUrl);
 
@@ -748,6 +762,12 @@ public class MainActivity extends AppCompatActivity {
         // 打开侧边栏菜单时，默认隐藏回看列表，直到用户按右键拉出
         listCatchup.setVisibility(View.GONE);
 
+        // 彻底剥夺全屏播放器的焦点权，防止系统焦点抢占与滞留导致菜单首次打不开
+        if (playerView != null) {
+            playerView.setFocusable(false);
+            playerView.setFocusableInTouchMode(false);
+        }
+
         if (!categories.isEmpty()) {
             int catIndex = categories.indexOf(currentCategory);
             if (catIndex != -1) {
@@ -760,6 +780,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void run() {
                 listChannels.requestFocus();
+                listChannels.requestFocusFromTouch(); // 双重保障聚焦
                 if (currentChannel != null) {
                     List<Channel> channels = groupedChannels.get(currentCategory);
                     if (channels != null) {
@@ -778,6 +799,13 @@ public class MainActivity extends AppCompatActivity {
         if (!isSidebarShowing) return;
         isSidebarShowing = false;
         layoutSidebar.setVisibility(View.GONE);
+
+        // 菜单隐藏后，重新归还播放器的焦点可触碰权，恢复全屏点击交互
+        if (playerView != null) {
+            playerView.setFocusable(true);
+            playerView.setFocusableInTouchMode(true);
+        }
+
         tvHandler.removeMessages(MSG_HIDE_SIDEBAR);
     }
 
@@ -1048,12 +1076,28 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
+        if (proxyServer != null) {
+            proxyServer.stop();
+            proxyServer = null;
+        }
         super.onDestroy();
         if (player != null) {
             player.release();
             player = null;
         }
         tvHandler.removeCallbacksAndMessages(null);
+    }
+
+    private String proxyUrlIfNeeded(String url) {
+        if (url == null) return null;
+        // 仅对 Android 4.4 及以下设备且以 https:// 开头的源使用本地回环 HTTP 代理，消除 HTTPS 协议在老系统上的握手/解析瓶颈
+        if (android.os.Build.VERSION.SDK_INT <= 20 && url.startsWith("https://")) {
+            if (proxyServer != null && proxyServer.isRunning()) {
+                String encodedUrl = android.net.Uri.encode(url);
+                return "http://127.0.0.1:" + proxyServer.getPort() + "/proxy?url=" + encodedUrl;
+            }
+        }
+        return url;
     }
 
     // ==========================================
@@ -1232,6 +1276,137 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public java.net.Socket createSocket(java.net.InetAddress address, int port, java.net.InetAddress localAddress, int localPort) throws java.io.IOException {
             return enableTLS(delegate.createSocket(address, port, localAddress, localPort));
+        }
+    }
+
+    private static class LocalProxyServer {
+        private java.net.ServerSocket serverSocket;
+        private int port = 0;
+        private boolean isRunning = false;
+        private final okhttp3.OkHttpClient okHttpClient;
+
+        public LocalProxyServer() {
+            okhttp3.OkHttpClient.Builder builder = new okhttp3.OkHttpClient.Builder()
+                .followRedirects(true)
+                .followSslRedirects(true);
+            
+            if (android.os.Build.VERSION.SDK_INT >= 16 && android.os.Build.VERSION.SDK_INT <= 20) {
+                try {
+                    javax.net.ssl.SSLContext sslContext = javax.net.ssl.SSLContext.getInstance("TLSv1.2");
+                    sslContext.init(null, null, null);
+                    builder.sslSocketFactory(new TLSSocketFactory(sslContext.getSocketFactory()));
+                } catch (Exception ignored) {}
+            }
+            this.okHttpClient = builder.build();
+        }
+
+        public void start() throws java.io.IOException {
+            serverSocket = new java.net.ServerSocket(0);
+            port = serverSocket.getLocalPort();
+            isRunning = true;
+            
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    while (isRunning) {
+                        try {
+                            final java.net.Socket clientSocket = serverSocket.accept();
+                            new Thread(new Runnable() {
+                                @Override
+                                public void run() {
+                                    handleRequest(clientSocket);
+                                }
+                            }).start();
+                        } catch (java.io.IOException ignored) {}
+                    }
+                }
+            }).start();
+            Log.i("LocalProxyServer", "Proxy server started on port: " + port);
+        }
+
+        public int getPort() {
+            return port;
+        }
+
+        public boolean isRunning() {
+            return isRunning;
+        }
+
+        public void stop() {
+            isRunning = false;
+            if (serverSocket != null) {
+                try {
+                    serverSocket.close();
+                } catch (java.io.IOException ignored) {}
+            }
+        }
+
+        private void handleRequest(java.net.Socket clientSocket) {
+            java.io.BufferedReader in = null;
+            java.io.OutputStream out = null;
+            try {
+                in = new java.io.BufferedReader(new java.io.InputStreamReader(clientSocket.getInputStream()));
+                out = clientSocket.getOutputStream();
+
+                String requestLine = in.readLine();
+                if (requestLine == null || !requestLine.startsWith("GET")) {
+                    return;
+                }
+
+                String path = requestLine.split(" ")[1];
+                int urlIndex = path.indexOf("url=");
+                if (urlIndex == -1) {
+                    out.write("HTTP/1.1 400 Bad Request\r\n\r\n".getBytes());
+                    out.flush();
+                    return;
+                }
+
+                String targetUrl = android.net.Uri.decode(path.substring(urlIndex + 4));
+                Log.d("LocalProxyServer", "Proxying HTTPS request for: " + targetUrl);
+
+                okhttp3.Request request = new okhttp3.Request.Builder()
+                        .url(targetUrl)
+                        .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/102.0.0.0 Safari/537.36")
+                        .build();
+
+                okhttp3.Response response = okHttpClient.newCall(request).execute();
+                
+                String statusLine = "HTTP/1.1 " + response.code() + " " + response.message() + "\r\n";
+                out.write(statusLine.getBytes());
+
+                if (response.body() != null) {
+                    okhttp3.MediaType contentType = response.body().contentType();
+                    if (contentType != null) {
+                        out.write(("Content-Type: " + contentType.toString() + "\r\n").getBytes());
+                    }
+                    long contentLength = response.body().contentLength();
+                    if (contentLength >= 0) {
+                        out.write(("Content-Length: " + contentLength + "\r\n").getBytes());
+                    }
+                }
+                out.write("\r\n".getBytes());
+                out.flush();
+
+                if (response.body() != null) {
+                    java.io.InputStream responseStream = response.body().byteStream();
+                    byte[] buffer = new byte[8192];
+                    int bytesRead;
+                    while ((bytesRead = responseStream.read(buffer)) != -1) {
+                        out.write(buffer, 0, bytesRead);
+                    }
+                    out.flush();
+                }
+                response.close();
+
+            } catch (Exception e) {
+                Log.e("LocalProxyServer", "Proxy error", e);
+            } finally {
+                try {
+                    if (in != null) in.close();
+                    if (out != null) out.close();
+                    clientSocket.close();
+                } catch (java.io.IOException ignored) {}
+            }
         }
     }
 }

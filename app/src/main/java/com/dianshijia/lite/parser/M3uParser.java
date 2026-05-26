@@ -143,7 +143,7 @@ public class M3uParser {
                 } else if (!line.startsWith("#")) {
                     String playUrl = line;
                     if (!currentName.isEmpty() && playUrl.startsWith("http")) {
-                        String key = currentGroup + "_" + currentName;
+                        String key = currentName;
                         Channel channel = channelMap.get(key);
                         
                         // 如果是第一次遇到该频道，则新建频道对象
