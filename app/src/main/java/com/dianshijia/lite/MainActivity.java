@@ -381,7 +381,22 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void setupPlayer() {
-        player = new ExoPlayer.Builder(this).build();
+        // 构造支持自定义 User-Agent 且允许跨协议重定向的 HttpDataSource 工厂
+        String userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/102.0.0.0 Safari/537.36";
+        com.google.android.exoplayer2.upstream.DefaultHttpDataSource.Factory httpDataSourceFactory = 
+            new com.google.android.exoplayer2.upstream.DefaultHttpDataSource.Factory()
+                .setUserAgent(userAgent)
+                .setAllowCrossProtocolRedirects(true); // 允许从 HTTP 重定向到 HTTPS，反之亦然
+
+        // 建立支持自定义数据源的 DefaultMediaSourceFactory
+        com.google.android.exoplayer2.source.DefaultMediaSourceFactory mediaSourceFactory = 
+            new com.google.android.exoplayer2.source.DefaultMediaSourceFactory(httpDataSourceFactory);
+
+        // 用 mediaSourceFactory 来构建播放器实例
+        player = new ExoPlayer.Builder(this)
+            .setMediaSourceFactory(mediaSourceFactory)
+            .build();
+
         playerView.setPlayer(player);
 
         player.addListener(new Player.Listener() {

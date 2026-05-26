@@ -13,7 +13,7 @@
         android:clickable="true"
         android:focusable="true"
         app:use_controller="false"
-        app:surface_type="surface_view"
+        app:surface_type="texture_view"
         app:resize_mode="fill" />
 
     <!-- 侧边栏选择菜单：包含分类列表、频道列表、回看时段列表 -->
