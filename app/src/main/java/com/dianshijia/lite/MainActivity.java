@@ -1413,12 +1413,6 @@ public class MainActivity extends AppCompatActivity {
                     return;
                 }
 
-                // 完整消耗掉客户端发来的 Headers，防止提前截断导致 Connection Reset
-                String headerLine;
-                while ((headerLine = in.readLine()) != null && !headerLine.trim().isEmpty()) {
-                    // 消耗头行
-                }
-
                 String path = requestLine.split(" ")[1];
                 int urlIndex = path.indexOf("url=");
                 if (urlIndex == -1) {
@@ -1430,10 +1424,29 @@ public class MainActivity extends AppCompatActivity {
                 String targetUrl = android.net.Uri.decode(path.substring(urlIndex + 4));
                 Log.d("LocalProxyServer", "Proxying request for: " + targetUrl);
 
-                okhttp3.Request request = new okhttp3.Request.Builder()
-                        .url(targetUrl)
-                        .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/102.0.0.0 Safari/537.36")
-                        .build();
+                okhttp3.Request.Builder requestBuilder = new okhttp3.Request.Builder()
+                        .url(targetUrl);
+
+                // 读取客户端发来的 Headers，排除 Host 后透传给远端服务器，解决防盗链与拉流参数兼容问题
+                String headerLine;
+                while ((headerLine = in.readLine()) != null && !headerLine.trim().isEmpty()) {
+                    int colonIndex = headerLine.indexOf(':');
+                    if (colonIndex != -1) {
+                        String name = headerLine.substring(0, colonIndex).trim();
+                        String value = headerLine.substring(colonIndex + 1).trim();
+                        if (!name.equalsIgnoreCase("Host")) {
+                            requestBuilder.header(name, value);
+                        }
+                    }
+                }
+
+                // 保证有兜底的 User-Agent
+                okhttp3.Request request = requestBuilder.build();
+                if (request.header("User-Agent") == null) {
+                    request = request.newBuilder()
+                            .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/102.0.0.0 Safari/537.36")
+                            .build();
+                }
 
                 okhttp3.Response response = okHttpClient.newCall(request).execute();
 
