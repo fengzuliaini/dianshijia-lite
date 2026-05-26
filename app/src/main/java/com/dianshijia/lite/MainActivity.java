@@ -167,6 +167,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        enableTls12Helper();
         setContentView(R.layout.activity_main);
 
         initViews();
@@ -441,7 +442,7 @@ public class MainActivity extends AppCompatActivity {
                             switchLine(true); // 自动尝试切下一条线路
                         }
                     };
-                    tvHandler.postDelayed(autoSwitchLineRunnable, 2000);
+                    tvHandler.postDelayed(autoSwitchLineRunnable, 3000);
                 } else {
                     layoutLoading.setVisibility(View.VISIBLE);
                     textLoadingStatus.setText(R.string.parse_failed);
@@ -754,17 +755,22 @@ public class MainActivity extends AppCompatActivity {
             }
         }
 
-        if (currentChannel != null) {
-            List<Channel> channels = groupedChannels.get(currentCategory);
-            if (channels != null) {
-                int chIndex = channels.indexOf(currentChannel);
-                if (chIndex != -1) {
-                    listChannels.setSelection(chIndex);
+        // 使用 post 异步队列就绪机制，保证在 View 彻底完成测量与可见后瞬间锁定焦点，解决首次呼出菜单无法操作的问题
+        listChannels.post(new Runnable() {
+            @Override
+            public void run() {
+                listChannels.requestFocus();
+                if (currentChannel != null) {
+                    List<Channel> channels = groupedChannels.get(currentCategory);
+                    if (channels != null) {
+                        int chIndex = channels.indexOf(currentChannel);
+                        if (chIndex != -1) {
+                            listChannels.setSelection(chIndex);
+                        }
+                    }
                 }
             }
-        }
-        
-        listChannels.requestFocus(); // 直接聚焦到频道列表上
+        });
         resetSidebarHideTimer();
     }
 
@@ -1161,6 +1167,71 @@ public class MainActivity extends AppCompatActivity {
                                   prog.beginTime.equals(currentCatchupProgram.beginTime)));
             tv.setSelected(isSelected);
             return convertView;
+        }
+    }
+
+    private void enableTls12Helper() {
+        if (android.os.Build.VERSION.SDK_INT >= 16 && android.os.Build.VERSION.SDK_INT <= 20) {
+            try {
+                javax.net.ssl.SSLContext sslContext = javax.net.ssl.SSLContext.getInstance("TLSv1.2");
+                sslContext.init(null, null, null);
+                javax.net.ssl.HttpsURLConnection.setDefaultSSLSocketFactory(
+                    new TLSSocketFactory(sslContext.getSocketFactory())
+                );
+                Log.i(TAG, "Successfully enabled TLSv1.2 on legacy Android device");
+            } catch (Exception e) {
+                Log.e(TAG, "Failed to enable TLSv1.2", e);
+            }
+        }
+    }
+
+    private static class TLSSocketFactory extends javax.net.ssl.SSLSocketFactory {
+        private final javax.net.ssl.SSLSocketFactory delegate;
+
+        public TLSSocketFactory(javax.net.ssl.SSLSocketFactory delegate) {
+            this.delegate = delegate;
+        }
+
+        @Override
+        public String[] getDefaultCipherSuites() {
+            return delegate.getDefaultCipherSuites();
+        }
+
+        @Override
+        public String[] getSupportedCipherSuites() {
+            return delegate.getSupportedCipherSuites();
+        }
+
+        private java.net.Socket enableTLS(java.net.Socket socket) {
+            if (socket instanceof javax.net.ssl.SSLSocket) {
+                ((javax.net.ssl.SSLSocket) socket).setEnabledProtocols(new String[]{"TLSv1.1", "TLSv1.2"});
+            }
+            return socket;
+        }
+
+        @Override
+        public java.net.Socket createSocket(java.net.Socket s, String host, int port, boolean autoClose) throws java.io.IOException {
+            return enableTLS(delegate.createSocket(s, host, port, autoClose));
+        }
+
+        @Override
+        public java.net.Socket createSocket(String host, int port) throws java.io.IOException {
+            return enableTLS(delegate.createSocket(host, port));
+        }
+
+        @Override
+        public java.net.Socket createSocket(String host, int port, java.net.InetAddress localHost, int localPort) throws java.io.IOException {
+            return enableTLS(delegate.createSocket(host, port, localHost, localPort));
+        }
+
+        @Override
+        public java.net.Socket createSocket(java.net.InetAddress host, int port) throws java.io.IOException {
+            return enableTLS(delegate.createSocket(host, port));
+        }
+
+        @Override
+        public java.net.Socket createSocket(java.net.InetAddress address, int port, java.net.InetAddress localAddress, int localPort) throws java.io.IOException {
+            return enableTLS(delegate.createSocket(address, port, localAddress, localPort));
         }
     }
 }
