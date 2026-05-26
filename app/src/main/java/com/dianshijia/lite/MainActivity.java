@@ -598,9 +598,9 @@ public class MainActivity extends AppCompatActivity {
         // 直播模式下强制隐藏进度条
         layoutController.setVisibility(View.GONE);
 
-        // 缓存当前的播放链接，以便开机自启续播
+        // 缓存当前的播放链接，以便开机自启续播（保存原始 URL，不保存代理后的 URL）
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        prefs.edit().putString(KEY_LAST_URL, url).apply();
+        prefs.edit().putString(KEY_LAST_URL, channel.getPlayUrl()).apply();
     }
 
     /**
@@ -1088,14 +1088,30 @@ public class MainActivity extends AppCompatActivity {
         tvHandler.removeCallbacksAndMessages(null);
     }
 
+    private static String getProxyUrl(String originalUrl, int port) {
+        if (originalUrl == null) return null;
+        String encodedUrl = android.net.Uri.encode(originalUrl);
+        String ext = "";
+        int questionMark = originalUrl.indexOf('?');
+        String pathOnly = (questionMark != -1) ? originalUrl.substring(0, questionMark) : originalUrl;
+        int lastDot = pathOnly.lastIndexOf('.');
+        if (lastDot != -1) {
+            ext = pathOnly.substring(lastDot);
+        }
+        // 为了防止非字母数字字符或者太长，限制一下后缀名长度（比如 2 到 10 个字符）且符合后缀特征
+        if (ext.length() > 1 && ext.length() < 10 && ext.matches("\\.[a-zA-Z0-9]+")) {
+            return "http://127.0.0.1:" + port + "/proxy" + ext + "?url=" + encodedUrl;
+        }
+        return "http://127.0.0.1:" + port + "/proxy?url=" + encodedUrl;
+    }
+
     private String proxyUrlIfNeeded(String url) {
         if (url == null) return null;
         // V1.3.0: 对 Android 4.4 及以下设备 (API ≤ 20)，HTTP 和 HTTPS 全量代理
         // 因为老设备的 HttpURLConnection 处理 302 重定向、长 token URL 有已知 Bug
         if (android.os.Build.VERSION.SDK_INT <= 20 && (url.startsWith("http://") || url.startsWith("https://"))) {
             if (proxyServer != null && proxyServer.isRunning()) {
-                String encodedUrl = android.net.Uri.encode(url);
-                return "http://127.0.0.1:" + proxyServer.getPort() + "/proxy?url=" + encodedUrl;
+                return getProxyUrl(url, proxyServer.getPort());
             }
         }
         return url;
@@ -1378,8 +1394,7 @@ public class MainActivity extends AppCompatActivity {
                         absoluteUrl = baseUrl + trimmed;
                     }
                     // 改写为本地代理地址
-                    String encodedUrl = android.net.Uri.encode(absoluteUrl);
-                    String proxyUrl = "http://127.0.0.1:" + localPort + "/proxy?url=" + encodedUrl;
+                    String proxyUrl = getProxyUrl(absoluteUrl, localPort);
                     sb.append(proxyUrl).append("\n");
                 }
             }
@@ -1398,10 +1413,16 @@ public class MainActivity extends AppCompatActivity {
                     return;
                 }
 
+                // 完整消耗掉客户端发来的 Headers，防止提前截断导致 Connection Reset
+                String headerLine;
+                while ((headerLine = in.readLine()) != null && !headerLine.trim().isEmpty()) {
+                    // 消耗头行
+                }
+
                 String path = requestLine.split(" ")[1];
                 int urlIndex = path.indexOf("url=");
                 if (urlIndex == -1) {
-                    out.write("HTTP/1.1 400 Bad Request\r\n\r\n".getBytes());
+                    out.write("HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n".getBytes());
                     out.flush();
                     return;
                 }
@@ -1420,8 +1441,13 @@ public class MainActivity extends AppCompatActivity {
                 String finalUrl = response.request().url().toString();
                 Log.d("LocalProxyServer", "Final URL after redirects: " + finalUrl);
                 
-                String statusLine = "HTTP/1.1 " + response.code() + " " + response.message() + "\r\n";
+                String message = response.message();
+                if (message == null || message.trim().isEmpty()) {
+                    message = "OK";
+                }
+                String statusLine = "HTTP/1.1 " + response.code() + " " + message + "\r\n";
                 out.write(statusLine.getBytes());
+                out.write("Connection: close\r\n".getBytes()); // 增加 Connection: close 强制关闭连接
 
                 okhttp3.MediaType contentType = null;
                 if (response.body() != null) {
@@ -1472,6 +1498,12 @@ public class MainActivity extends AppCompatActivity {
 
             } catch (Exception e) {
                 Log.e("LocalProxyServer", "Proxy error", e);
+                try {
+                    if (out != null) {
+                        out.write("HTTP/1.1 502 Bad Gateway\r\nConnection: close\r\n\r\n".getBytes());
+                        out.flush();
+                    }
+                } catch (java.io.IOException ignored) {}
             } finally {
                 try {
                     if (in != null) in.close();
