@@ -1107,9 +1107,8 @@ public class MainActivity extends AppCompatActivity {
 
     private String proxyUrlIfNeeded(String url) {
         if (url == null) return null;
-        // V1.3.0: 对 Android 4.4 及以下设备 (API ≤ 20)，HTTP 和 HTTPS 全量代理
-        // 因为老设备的 HttpURLConnection 处理 302 重定向、长 token URL 有已知 Bug
-        if (android.os.Build.VERSION.SDK_INT <= 20 && (url.startsWith("http://") || url.startsWith("https://"))) {
+        // V1.3.4: 门槛放宽至 Android 5.1 及以下设备 (API ≤ 22)，以兼容主流模拟器测试及中低端老电视机顶盒
+        if (android.os.Build.VERSION.SDK_INT <= 22 && (url.startsWith("http://") || url.startsWith("https://"))) {
             if (proxyServer != null && proxyServer.isRunning()) {
                 return getProxyUrl(url, proxyServer.getPort());
             }
@@ -1391,12 +1390,12 @@ public class MainActivity extends AppCompatActivity {
                 if (trimmed.isEmpty()) {
                     sb.append(line).append("\n");
                 } else if (trimmed.startsWith("#")) {
-                    // 如果在 API <= 20 设备上，发现自适应流包含 hev1/hvc1/h265，则过滤该流
+                    // 如果在 API <= 22 设备上，发现自适应流包含 hev1/hvc1/h265，则过滤该流
                     if (trimmed.startsWith("#EXT-X-STREAM-INF:")) {
                         boolean isH265 = trimmed.toLowerCase(Locale.US).contains("hev1") ||
                                          trimmed.toLowerCase(Locale.US).contains("hvc1") ||
                                          trimmed.toLowerCase(Locale.US).contains("h265");
-                        if (isH265 && android.os.Build.VERSION.SDK_INT <= 20) {
+                        if (isH265 && android.os.Build.VERSION.SDK_INT <= 22) {
                             skipNextLine = true; // 下一行 URL 需过滤
                             continue;
                         }

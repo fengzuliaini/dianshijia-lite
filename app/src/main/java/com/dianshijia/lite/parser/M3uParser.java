@@ -167,8 +167,8 @@ public class M3uParser {
                             }
                         } else {
                             if (!channel.getLiveUrls().contains(playUrl)) {
-                                // 针对老旧电视 (API <= 20) 对 H.265 (HEVC) 线路做降权排序优化，将其插在常规 H.264 兼容线路后
-                                if (android.os.Build.VERSION.SDK_INT <= 20 && 
+                                // 针对老旧电视 (API <= 22) 对 H.265 (HEVC) 线路做降权排序优化，将其插在常规 H.264 兼容线路后
+                                if (android.os.Build.VERSION.SDK_INT <= 22 && 
                                     (playUrl.toLowerCase(java.util.Locale.US).contains("h265") || 
                                      playUrl.toLowerCase(java.util.Locale.US).contains("hevc"))) {
                                     channel.getLiveUrls().add(playUrl);
