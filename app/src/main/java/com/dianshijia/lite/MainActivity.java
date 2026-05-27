@@ -474,7 +474,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void loadLiveChannels() {
-        M3uParser.loadChannels(this, M3U_URL, new M3uParser.OnParseListener() {
+        M3uParser.loadFromAssets(this, "tv.txt", new M3uParser.OnParseListener() {
             @Override
             public void onParseSuccess(final LinkedHashMap<String, List<Channel>> parsedGrouped, final List<Channel> parsedAll) {
                 runOnUiThread(new Runnable() {

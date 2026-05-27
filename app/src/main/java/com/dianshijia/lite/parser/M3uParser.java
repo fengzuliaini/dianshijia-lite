@@ -34,6 +34,24 @@ public class M3uParser {
         void onParseFailed(Exception e);
     }
 
+    public static void loadFromAssets(final Context context, final String fileName, final OnParseListener listener) {
+        try {
+            java.io.InputStream is = context.getAssets().open(fileName);
+            BufferedReader reader = new BufferedReader(new java.io.InputStreamReader(is, "UTF-8"));
+            StringBuilder sb = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null) {
+                sb.append(line).append("\n");
+            }
+            reader.close();
+            Log.i(TAG, "Loaded assets file successfully: " + fileName);
+            parseM3u(sb.toString(), listener);
+        } catch (Exception e) {
+            Log.e(TAG, "Load from assets failed", e);
+            listener.onParseFailed(e);
+        }
+    }
+
     public static void loadChannels(final Context context, final String m3uUrl, final OnParseListener listener) {
         OkHttpClient client = new OkHttpClient();
         Request request = new Request.Builder()
@@ -98,9 +116,19 @@ public class M3uParser {
     }
 
     /**
-     * 解析 M3U 并进行去重合并及多线路整合
+     * 解析 M3U 并进行去重合并及多线路整合（自适应分流 TXT / M3U 格式）
      */
     private static void parseM3u(String content, OnParseListener listener) {
+        if (content == null) {
+            listener.onParseFailed(new Exception("Content is null"));
+            return;
+        }
+        String trimmed = content.trim();
+        if (!trimmed.startsWith("#EXTM3U") && !trimmed.startsWith("#EXTINF")) {
+            parseTxt(content, listener);
+            return;
+        }
+
         LinkedHashMap<String, List<Channel>> groupedChannels = new LinkedHashMap<>();
         List<Channel> allChannels = new ArrayList<>();
         
@@ -177,35 +205,7 @@ public class M3uParser {
             }
 
             // 对所有频道的直播线路进行智能优先级排序（高清晰度 PLTV 优先，老电视 H.265 沉底）
-            for (Channel channel : allChannels) {
-                final List<String> urls = channel.getLiveUrls();
-                if (urls.size() > 1) {
-                    java.util.Collections.sort(urls, new java.util.Comparator<String>() {
-                        @Override
-                        public int compare(String u1, String u2) {
-                            int w1 = getUrlWeight(u1);
-                            int w2 = getUrlWeight(u2);
-                            return w1 - w2;
-                        }
-
-                        private int getUrlWeight(String url) {
-                            String lower = url.toLowerCase(java.util.Locale.US);
-                            boolean isH265 = lower.contains("h265") || lower.contains("hevc");
-                            boolean isTvod = url.contains("/TVOD/");
-
-                            if (android.os.Build.VERSION.SDK_INT <= 22) {
-                                if (isH265) {
-                                    return isTvod ? 4 : 3;
-                                } else {
-                                    return isTvod ? 2 : 1;
-                                }
-                            } else {
-                                return isTvod ? 2 : 1;
-                            }
-                        }
-                    });
-                }
-            }
+            sortChannels(allChannels);
 
             if (!allChannels.isEmpty()) {
                 listener.onParseSuccess(groupedChannels, allChannels);
@@ -214,13 +214,146 @@ public class M3uParser {
             }
 
         } catch (Exception e) {
-            Log.e(TAG, "Parse failed", e);
+            Log.e(TAG, "Parse M3U failed", e);
             listener.onParseFailed(e);
         } finally {
             if (reader != null) {
                 try {
                     reader.close();
                 } catch (IOException ignored) {}
+            }
+        }
+    }
+
+    /**
+     * 解析 TXT 格式并进行合并去重及智能排序
+     */
+    private static void parseTxt(String content, OnParseListener listener) {
+        LinkedHashMap<String, List<Channel>> groupedChannels = new LinkedHashMap<>();
+        List<Channel> allChannels = new ArrayList<>();
+        Map<String, Channel> channelMap = new LinkedHashMap<>();
+
+        BufferedReader reader = null;
+        try {
+            reader = new BufferedReader(new StringReader(content));
+            String line;
+            String currentGroup = "其他频道";
+            int channelCounter = 1;
+
+            while ((line = reader.readLine()) != null) {
+                line = line.trim();
+                if (line.isEmpty() || line.startsWith("#")) {
+                    continue;
+                }
+
+                // 支持检测 ",#genre#" 类似的分类名行
+                if (line.contains(",#genre#") || line.contains(", #genre#") || line.contains(",  #genre#")) {
+                    int commaIndex = line.indexOf(",");
+                    if (commaIndex != -1) {
+                        currentGroup = line.substring(0, commaIndex).trim();
+                    }
+                    continue;
+                }
+
+                // 解析频道名称和播放源 URL 列表
+                int commaIndex = line.indexOf(",");
+                if (commaIndex != -1) {
+                    String currentName = line.substring(0, commaIndex).trim();
+                    String urlsPart = line.substring(commaIndex + 1).trim();
+
+                    if (!currentName.isEmpty() && !urlsPart.isEmpty()) {
+                        String[] urls = urlsPart.split("#");
+                        String key = currentGroup + "_" + currentName;
+                        Channel channel = channelMap.get(key);
+
+                        if (channel == null) {
+                            String numberStr = String.format("%03d", channelCounter++);
+                            channel = new Channel(numberStr, currentName, currentGroup);
+                            channelMap.put(key, channel);
+
+                            allChannels.add(channel);
+
+                            if (!groupedChannels.containsKey(currentGroup)) {
+                                groupedChannels.put(currentGroup, new ArrayList<Channel>());
+                            }
+                            groupedChannels.get(currentGroup).add(channel);
+                        }
+
+                        for (String playUrl : urls) {
+                            playUrl = playUrl.trim();
+                            if (playUrl.isEmpty() || !playUrl.startsWith("http")) {
+                                continue;
+                            }
+
+                            // 1. 所有的源都作为可用的直播线路
+                            if (!channel.getLiveUrls().contains(playUrl)) {
+                                channel.getLiveUrls().add(playUrl);
+                            }
+
+                            // 2. 如果包含 /TVOD/ 时移协议，收集到回看线路中
+                            if (playUrl.contains("/TVOD/")) {
+                                if (!channel.getTvodUrls().contains(playUrl)) {
+                                    channel.getTvodUrls().add(playUrl);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 对所有频道的直播线路进行智能优先级排序（高清晰度 PLTV 优先，老电视 H.265 沉底）
+            sortChannels(allChannels);
+
+            if (!allChannels.isEmpty()) {
+                listener.onParseSuccess(groupedChannels, allChannels);
+            } else {
+                listener.onParseFailed(new Exception("Parsed 0 channels from TXT file."));
+            }
+
+        } catch (Exception e) {
+            Log.e(TAG, "Parse TXT failed", e);
+            listener.onParseFailed(e);
+        } finally {
+            if (reader != null) {
+                try {
+                    reader.close();
+                } catch (IOException ignored) {}
+            }
+        }
+    }
+
+    /**
+     * 智能重排频道下的直播线路（高清晰度 PLTV 优先，老电视 H.265 沉底）
+     */
+    private static void sortChannels(List<Channel> allChannels) {
+        for (Channel channel : allChannels) {
+            final List<String> urls = channel.getLiveUrls();
+            if (urls.size() > 1) {
+                java.util.Collections.sort(urls, new java.util.Comparator<String>() {
+                    @Override
+                    public int compare(String u1, String u2) {
+                        int w1 = getUrlWeight(u1);
+                        int w2 = getUrlWeight(u2);
+                        return w1 - w2;
+                    }
+
+                    private int getUrlWeight(String url) {
+                        String lower = url.toLowerCase(java.util.Locale.US);
+                        boolean isH265 = lower.contains("h265") || lower.contains("hevc");
+                        boolean isTvod = url.contains("/TVOD/");
+
+                        // 老电视 SDK_INT <= 22（Android 5.1及以下），对 H.265/HEVC 加大权重值使其沉底
+                        if (android.os.Build.VERSION.SDK_INT <= 22) {
+                            if (isH265) {
+                                return isTvod ? 4 : 3;
+                            } else {
+                                return isTvod ? 2 : 1;
+                            }
+                        } else {
+                            return isTvod ? 2 : 1;
+                        }
+                    }
+                });
             }
         }
     }
