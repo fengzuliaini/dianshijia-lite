@@ -403,9 +403,27 @@ public class MainActivity extends AppCompatActivity {
         com.google.android.exoplayer2.source.DefaultMediaSourceFactory mediaSourceFactory = 
             new com.google.android.exoplayer2.source.DefaultMediaSourceFactory(httpDataSourceFactory);
 
-        // 用 mediaSourceFactory 来构建播放器实例
+        // 1. 显式创建渲染器工厂并开启扩展渲染器模式（如硬解初始化失败，允许降级到其它软解/候选解码器）
+        com.google.android.exoplayer2.DefaultRenderersFactory renderersFactory = 
+            new com.google.android.exoplayer2.DefaultRenderersFactory(this)
+                .setExtensionRendererMode(com.google.android.exoplayer2.DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON);
+
+        // 2. 显式配置适合老电视低内存环境的缓冲控制（降低内存开销，预防播放过程中的 OOM 崩溃）
+        com.google.android.exoplayer2.DefaultLoadControl loadControl = 
+            new com.google.android.exoplayer2.DefaultLoadControl.Builder()
+                .setBufferDurationsMs(
+                    15000, // minBufferMs: 最小缓冲 15 秒（默认 50s 易在老电视上引发 OOM）
+                    30000, // maxBufferMs: 最大缓冲 30 秒
+                    2500,  // bufferForPlaybackMs: 播放前最少缓冲 2.5 秒
+                    5000   // bufferForPlaybackAfterRebufferMs: 卡顿后重新播放前最少缓冲 5 秒
+                )
+                .build();
+
+        // 用 renderersFactory、mediaSourceFactory 和 loadControl 来构建播放器实例
         player = new ExoPlayer.Builder(this)
+            .setRenderersFactory(renderersFactory)
             .setMediaSourceFactory(mediaSourceFactory)
+            .setLoadControl(loadControl)
             .build();
 
         playerView.setPlayer(player);
@@ -474,7 +492,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void loadLiveChannels() {
-        M3uParser.loadFromAssets(this, "tv.txt", new M3uParser.OnParseListener() {
+        M3uParser.loadChannels(this, M3U_URL, new M3uParser.OnParseListener() {
             @Override
             public void onParseSuccess(final LinkedHashMap<String, List<Channel>> parsedGrouped, final List<Channel> parsedAll) {
                 runOnUiThread(new Runnable() {
@@ -1132,8 +1150,8 @@ public class MainActivity extends AppCompatActivity {
 
     private String proxyUrlIfNeeded(String url) {
         if (url == null) return null;
-        // V1.3.4: 门槛放宽至 Android 5.1 及以下设备 (API ≤ 22)，以兼容主流模拟器测试及中低端老电视机顶盒
-        if (android.os.Build.VERSION.SDK_INT <= 22 && (url.startsWith("http://") || url.startsWith("https://"))) {
+        // V1.3.9: 仅对 https:// 加密源开启本地代理，纯 http:// 优质源直连播放以获得最高传输性能与连接稳定性
+        if (android.os.Build.VERSION.SDK_INT <= 22 && url.startsWith("https://")) {
             if (proxyServer != null && proxyServer.isRunning()) {
                 return getProxyUrl(url, proxyServer.getPort());
             }
