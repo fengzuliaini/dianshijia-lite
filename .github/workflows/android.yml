@@ -10,6 +10,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      statuses: write
 
     steps:
     - name: Checkout Code
@@ -29,14 +32,18 @@ jobs:
     - name: Build with Gradle
       run: gradle assembleDebug --stacktrace > build.log 2>&1
 
-    - name: Commit and Push build log on failure
+    - name: Upload log to Pastebin and Status on failure
       if: failure()
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        git config --global user.name "github-actions[bot]"
-        git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
-        git add build.log
-        git commit -m "build failed: upload log [skip ci]"
-        git push origin master
+        PASTE_URL=$(curl -s -F "content=<build.log" -F "expiry_days=1" https://dpaste.org/api/ | tr -d '\r\n')
+        echo "Log uploaded to: $PASTE_URL"
+        curl -X POST \
+          -H "Authorization: token $GITHUB_TOKEN" \
+          -H "Accept: application/vnd.github.v3+json" \
+          https://api.github.com/repos/${{ github.repository }}/statuses/${{ github.sha }} \
+          -d "{\"state\": \"failure\", \"target_url\": \"$PASTE_URL\", \"description\": \"Gradle build failed. Click details to view log.\", \"context\": \"gradle-build-log\"}"
 
     - name: Upload Debug APK
       uses: actions/upload-artifact@v4
