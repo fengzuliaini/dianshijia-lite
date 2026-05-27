@@ -160,35 +160,50 @@ public class M3uParser {
                             groupedChannels.get(currentGroup).add(channel);
                         }
 
-                        // 将 URL 分类添加进对应的直播列表或回看列表，避免重复添加相同 URL
+                        // 1. 所有的源（包括 /PLTV/ 和 /TVOD/）都作为可用的直播线路多线路容灾，避免线路缺失
+                        if (!channel.getLiveUrls().contains(playUrl)) {
+                            channel.getLiveUrls().add(playUrl);
+                        }
+
+                        // 2. 如果包含 /TVOD/ 时移协议，同时收集到回看线路中
                         if (playUrl.contains("/TVOD/")) {
                             if (!channel.getTvodUrls().contains(playUrl)) {
                                 channel.getTvodUrls().add(playUrl);
                             }
-                        } else {
-                            if (!channel.getLiveUrls().contains(playUrl)) {
-                                // 针对老旧电视 (API <= 22) 对 H.265 (HEVC) 线路做降权排序优化，将其插在常规 H.264 兼容线路后
-                                if (android.os.Build.VERSION.SDK_INT <= 22 && 
-                                    (playUrl.toLowerCase(java.util.Locale.US).contains("h265") || 
-                                     playUrl.toLowerCase(java.util.Locale.US).contains("hevc"))) {
-                                    channel.getLiveUrls().add(playUrl);
-                                } else {
-                                    // 查找到第一个 H.265 源的位置，并插在它前面，保证 H.264 线路置顶
-                                    int insertIndex = 0;
-                                    for (int i = 0; i < channel.getLiveUrls().size(); i++) {
-                                        String u = channel.getLiveUrls().get(i).toLowerCase(java.util.Locale.US);
-                                        if (u.contains("h265") || u.contains("hevc")) {
-                                            insertIndex = i;
-                                            break;
-                                        }
-                                        insertIndex = i + 1;
-                                    }
-                                    channel.getLiveUrls().add(insertIndex, playUrl);
-                                }
-                            }
                         }
                     }
                     currentName = ""; // 重置
+                }
+            }
+
+            // 对所有频道的直播线路进行智能优先级排序（高清晰度 PLTV 优先，老电视 H.265 沉底）
+            for (Channel channel : allChannels) {
+                final List<String> urls = channel.getLiveUrls();
+                if (urls.size() > 1) {
+                    java.util.Collections.sort(urls, new java.util.Comparator<String>() {
+                        @Override
+                        public int compare(String u1, String u2) {
+                            int w1 = getUrlWeight(u1);
+                            int w2 = getUrlWeight(u2);
+                            return w1 - w2;
+                        }
+
+                        private int getUrlWeight(String url) {
+                            String lower = url.toLowerCase(java.util.Locale.US);
+                            boolean isH265 = lower.contains("h265") || lower.contains("hevc");
+                            boolean isTvod = url.contains("/TVOD/");
+
+                            if (android.os.Build.VERSION.SDK_INT <= 22) {
+                                if (isH265) {
+                                    return isTvod ? 4 : 3;
+                                } else {
+                                    return isTvod ? 2 : 1;
+                                }
+                            } else {
+                                return isTvod ? 2 : 1;
+                            }
+                        }
+                    });
                 }
             }
 
