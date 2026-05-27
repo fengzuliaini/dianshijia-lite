@@ -4,12 +4,12 @@ plugins {
 
 android {
     namespace 'com.dianshijia.lite'
-    compileSdk 34
+    compileSdk 33
 
     defaultConfig {
         applicationId "com.dianshijia.lite"
         minSdk 16
-        targetSdk 34
+        targetSdk 30
         versionCode 12
         versionName "1.4.0"
         multiDexEnabled true

@@ -15,6 +15,8 @@
     * 挂接 `SurfaceTextureListener`，在 Surface 的 Available 和 Destroyed 阶段分别绑定和释放物理 Surface，保障生命周期与底层播放器的安全脱耦。
 ### 移除 (Removed)
 * 彻底移除了 `com.google.android.exoplayer:exoplayer` (ExoPlayer 2.19.1) 全量依赖库，从而精炼了安装包结构，大幅缩减了老电视运存负载。
+### 修复 (Fixed)
+* **Actions 构建环境兼容**：将 `compileSdk` 回滚为 `33`，`targetSdk` 回滚为 `30`，以解决 GitHub Actions 在 JDK11 容器下编译 API 34 时的 Gradle 版本不匹配报错，保障云端自动化打包流程畅通。
 
 ---
 
