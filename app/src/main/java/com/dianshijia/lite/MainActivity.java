@@ -522,22 +522,43 @@ public class MainActivity extends AppCompatActivity {
         if (allChannels.isEmpty()) return;
 
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        String lastNumber = prefs.getString("last_played_channel_number", "");
         String lastUrl = prefs.getString(KEY_LAST_URL, "");
 
         Channel target = null;
-        if (!lastUrl.isEmpty()) {
+        
+        // 1. 优先使用频道台号匹配频道
+        if (!lastNumber.isEmpty()) {
+            for (Channel c : allChannels) {
+                if (c.getNumber().equals(lastNumber)) {
+                    target = c;
+                    break;
+                }
+            }
+        }
+
+        // 2. 兼容旧版本：若未找到，兜底使用 URL 匹配频道
+        if (target == null && !lastUrl.isEmpty()) {
             for (Channel c : allChannels) {
                 if (c.getLiveUrls().contains(lastUrl)) {
                     target = c;
-                    // 同步对应的线号
                     target.setCurrentLineIndex(c.getLiveUrls().indexOf(lastUrl));
                     break;
                 }
             }
         }
 
+        // 3. 全局默认第一个频道
         if (target == null) {
             target = allChannels.get(0);
+        }
+
+        // 4. 恢复并同步该频道上次选中的具体线路号，彻底解决 H.265 过滤或动态 Token 导致线路总是重置的 Bug
+        int savedLineIndex = prefs.getInt("last_line_index_" + target.getNumber(), -1);
+        if (savedLineIndex != -1 && savedLineIndex < target.getLiveUrls().size()) {
+            target.setCurrentLineIndex(savedLineIndex);
+        } else {
+            target.setCurrentLineIndex(0);
         }
 
         playChannel(target);
@@ -598,9 +619,13 @@ public class MainActivity extends AppCompatActivity {
         // 直播模式下强制隐藏进度条
         layoutController.setVisibility(View.GONE);
 
-        // 缓存当前的播放链接，以便开机自启续播（保存原始 URL，不保存代理后的 URL）
+        // 缓存当前的播放状态，以便开机自启续播（保存原始 URL、台号与专属线路索引，防止代理或动态 token 导致状态丢失）
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        prefs.edit().putString(KEY_LAST_URL, channel.getPlayUrl()).apply();
+        SharedPreferences.Editor editor = prefs.edit();
+        editor.putString(KEY_LAST_URL, channel.getPlayUrl());
+        editor.putString("last_played_channel_number", channel.getNumber());
+        editor.putInt("last_line_index_" + channel.getNumber(), channel.getCurrentLineIndex());
+        editor.apply();
     }
 
     /**
