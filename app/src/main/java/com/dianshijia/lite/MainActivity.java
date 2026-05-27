@@ -1379,10 +1379,28 @@ public class MainActivity extends AppCompatActivity {
 
             String[] lines = content.split("\n");
             StringBuilder sb = new StringBuilder();
+            boolean skipNextLine = false;
             for (String line : lines) {
                 String trimmed = line.trim();
-                if (trimmed.isEmpty() || trimmed.startsWith("#")) {
-                    // 注释行 / 空行保持原样
+                
+                if (skipNextLine) {
+                    skipNextLine = false;
+                    continue; // 过滤 H.265 子流对应的 URL 行
+                }
+                
+                if (trimmed.isEmpty()) {
+                    sb.append(line).append("\n");
+                } else if (trimmed.startsWith("#")) {
+                    // 如果在 API <= 20 设备上，发现自适应流包含 hev1/hvc1/h265，则过滤该流
+                    if (trimmed.startsWith("#EXT-X-STREAM-INF:")) {
+                        boolean isH265 = trimmed.toLowerCase(Locale.US).contains("hev1") ||
+                                         trimmed.toLowerCase(Locale.US).contains("hvc1") ||
+                                         trimmed.toLowerCase(Locale.US).contains("h265");
+                        if (isH265 && android.os.Build.VERSION.SDK_INT <= 20) {
+                            skipNextLine = true; // 下一行 URL 需过滤
+                            continue;
+                        }
+                    }
                     sb.append(line).append("\n");
                 } else {
                     // URL 行：可能是绝对路径或相对路径
@@ -1461,6 +1479,18 @@ public class MainActivity extends AppCompatActivity {
                 String statusLine = "HTTP/1.1 " + response.code() + " " + message + "\r\n";
                 out.write(statusLine.getBytes());
                 out.write("Connection: close\r\n".getBytes()); // 增加 Connection: close 强制关闭连接
+
+                // 透传远端响应的 Headers（如 Set-Cookie）给客户端，以支持防盗链会话校验
+                for (int i = 0; i < response.headers().size(); i++) {
+                    String name = response.headers().name(i);
+                    String value = response.headers().value(i);
+                    if (!name.equalsIgnoreCase("Content-Length") && 
+                        !name.equalsIgnoreCase("Content-Type") && 
+                        !name.equalsIgnoreCase("Connection") && 
+                        !name.equalsIgnoreCase("Transfer-Encoding")) {
+                        out.write((name + ": " + value + "\r\n").getBytes());
+                    }
+                }
 
                 okhttp3.MediaType contentType = null;
                 if (response.body() != null) {

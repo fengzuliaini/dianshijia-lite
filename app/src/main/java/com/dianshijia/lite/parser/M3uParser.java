@@ -167,7 +167,24 @@ public class M3uParser {
                             }
                         } else {
                             if (!channel.getLiveUrls().contains(playUrl)) {
-                                channel.getLiveUrls().add(playUrl);
+                                // 针对老旧电视 (API <= 20) 对 H.265 (HEVC) 线路做降权排序优化，将其插在常规 H.264 兼容线路后
+                                if (android.os.Build.VERSION.SDK_INT <= 20 && 
+                                    (playUrl.toLowerCase(java.util.Locale.US).contains("h265") || 
+                                     playUrl.toLowerCase(java.util.Locale.US).contains("hevc"))) {
+                                    channel.getLiveUrls().add(playUrl);
+                                } else {
+                                    // 查找到第一个 H.265 源的位置，并插在它前面，保证 H.264 线路置顶
+                                    int insertIndex = 0;
+                                    for (int i = 0; i < channel.getLiveUrls().size(); i++) {
+                                        String u = channel.getLiveUrls().get(i).toLowerCase(java.util.Locale.US);
+                                        if (u.contains("h265") || u.contains("hevc")) {
+                                            insertIndex = i;
+                                            break;
+                                        }
+                                        insertIndex = i + 1;
+                                    }
+                                    channel.getLiveUrls().add(insertIndex, playUrl);
+                                }
                             }
                         }
                     }
