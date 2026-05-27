@@ -20,11 +20,11 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
-import com.google.android.exoplayer2.ExoPlayer;
-import com.google.android.exoplayer2.MediaItem;
-import com.google.android.exoplayer2.PlaybackException;
-import com.google.android.exoplayer2.Player;
-import com.google.android.exoplayer2.ui.PlayerView;
+import android.view.Surface;
+import android.view.TextureView;
+
+import tv.danmaku.ijk.media.player.IjkMediaPlayer;
+import tv.danmaku.ijk.media.player.IMediaPlayer;
 
 import com.dianshijia.lite.model.Channel;
 import com.dianshijia.lite.model.CatchupProgram;
@@ -56,7 +56,7 @@ public class MainActivity extends AppCompatActivity {
     private static final long DELAY_NUM_SWITCH = 2000; // 数字键输入后2秒切台
 
     // UI 布局控件
-    private PlayerView playerView;
+    private TextureView playerView;
     private View layoutSidebar;
     private ListView listCategories;
     private ListView listChannels;
@@ -80,8 +80,9 @@ public class MainActivity extends AppCompatActivity {
     private SeekBar seekBar;
     private TextView textBackToLive;
 
-    // ExoPlayer 播放器
-    private ExoPlayer player;
+    // IjkPlayer 播放器与渲染表面
+    private IjkMediaPlayer ijkPlayer;
+    private Surface playSurface;
     
     // 数据源
     private final LinkedHashMap<String, List<Channel>> groupedChannels = new LinkedHashMap<>();
@@ -113,8 +114,8 @@ public class MainActivity extends AppCompatActivity {
     private final Runnable confirmSeekAction = new Runnable() {
         @Override
         public void run() {
-            if (player != null && tempSeekPosition != -1) {
-                player.seekTo(tempSeekPosition);
+            if (ijkPlayer != null && tempSeekPosition != -1) {
+                ijkPlayer.seekTo(tempSeekPosition);
                 tempSeekPosition = -1;
                 showController(); // Seek后重新开始5秒倒计时隐藏控制条
             }
@@ -127,9 +128,9 @@ public class MainActivity extends AppCompatActivity {
     private final Runnable updateProgressAction = new Runnable() {
         @Override
         public void run() {
-            if (player != null && isCatchupMode && !isUserSeeking && tempSeekPosition == -1) {
-                long position = player.getCurrentPosition();
-                long duration = player.getDuration();
+            if (ijkPlayer != null && isCatchupMode && !isUserSeeking && tempSeekPosition == -1) {
+                long position = ijkPlayer.getCurrentPosition();
+                long duration = ijkPlayer.getDuration();
                 if (duration > 0) {
                     int progress = (int) (position * 100 / duration);
                     seekBar.setProgress(progress);
@@ -188,9 +189,6 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        if (player != null && playerView != null) {
-            playerView.setPlayer(player);
-        }
         // 启动进度条轮询刷新
         tvHandler.post(updateProgressAction);
     }
@@ -198,14 +196,35 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onPause() {
         super.onPause();
-        if (playerView != null) {
-            playerView.setPlayer(null);
-        }
         tvHandler.removeCallbacks(updateProgressAction);
     }
 
     private void initViews() {
         playerView = findViewById(R.id.player_view);
+        playerView.setSurfaceTextureListener(new TextureView.SurfaceTextureListener() {
+            @Override
+            public void onSurfaceTextureAvailable(android.graphics.SurfaceTexture surfaceTexture, int width, int height) {
+                playSurface = new Surface(surfaceTexture);
+                if (ijkPlayer != null) {
+                    ijkPlayer.setSurface(playSurface);
+                }
+            }
+
+            @Override
+            public void onSurfaceTextureSizeChanged(android.graphics.SurfaceTexture surface, int width, int height) {}
+
+            @Override
+            public boolean onSurfaceTextureDestroyed(android.graphics.SurfaceTexture surface) {
+                if (playSurface != null) {
+                    playSurface.release();
+                    playSurface = null;
+                }
+                return true;
+            }
+
+            @Override
+            public void onSurfaceTextureUpdated(android.graphics.SurfaceTexture surface) {}
+        });
         layoutSidebar = findViewById(R.id.layout_sidebar);
         listCategories = findViewById(R.id.list_categories);
         listChannels = findViewById(R.id.list_channels);
@@ -347,8 +366,8 @@ public class MainActivity extends AppCompatActivity {
                 if (fromUser) {
                     isUserSeeking = true;
                     showController(); // 拖动时重置隐藏定时器
-                    if (player != null) {
-                        long targetPos = (player.getDuration() * progress) / 100;
+                    if (ijkPlayer != null) {
+                        long targetPos = (ijkPlayer.getDuration() * progress) / 100;
                         textTimeCurrent.setText(formatTime(targetPos));
                     }
                 }
@@ -363,10 +382,10 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onStopTrackingTouch(SeekBar seekBar) {
                 isUserSeeking = false;
-                if (player != null) {
-                    long duration = player.getDuration();
+                if (ijkPlayer != null) {
+                    long duration = ijkPlayer.getDuration();
                     long targetPos = (duration * seekBar.getProgress()) / 100;
-                    player.seekTo(targetPos);
+                    ijkPlayer.seekTo(targetPos);
                 }
                 showController(); // 开启延迟隐藏控制条
             }
@@ -392,103 +411,38 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void setupPlayer() {
-        // 构造支持自定义 User-Agent 且允许跨协议重定向的 HttpDataSource 工厂
-        String userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/102.0.0.0 Safari/537.36";
-        com.google.android.exoplayer2.upstream.DefaultHttpDataSource.Factory httpDataSourceFactory = 
-            new com.google.android.exoplayer2.upstream.DefaultHttpDataSource.Factory()
-                .setUserAgent(userAgent)
-                .setAllowCrossProtocolRedirects(true); // 允许从 HTTP 重定向到 HTTPS，反之亦然
+        try {
+            IjkMediaPlayer.loadLibrariesOnce(null);
+            IjkMediaPlayer.native_profileBegin("libijkplayer.so");
+            Log.i(TAG, "IjkMediaPlayer native libraries loaded successfully");
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to load ijkplayer native libraries", e);
+            Toast.makeText(this, "播放内核加载失败，请检查安装包兼容性", Toast.LENGTH_LONG).show();
+        }
+    }
 
-        // 建立支持自定义数据源的 DefaultMediaSourceFactory
-        com.google.android.exoplayer2.source.DefaultMediaSourceFactory mediaSourceFactory = 
-            new com.google.android.exoplayer2.source.DefaultMediaSourceFactory(httpDataSourceFactory);
-
-        // 1. 显式创建渲染器工厂并开启扩展渲染器模式（如硬解初始化失败，允许降级到其它软解/候选解码器）
-        com.google.android.exoplayer2.DefaultRenderersFactory renderersFactory = 
-            new com.google.android.exoplayer2.DefaultRenderersFactory(this)
-                .setExtensionRendererMode(com.google.android.exoplayer2.DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON);
-
-        // 2. 显式配置适合老电视低内存环境的缓冲控制（降低内存开销，预防播放过程中的 OOM 崩溃）
-        com.google.android.exoplayer2.DefaultLoadControl loadControl = 
-            new com.google.android.exoplayer2.DefaultLoadControl.Builder()
-                .setBufferDurationsMs(
-                    15000, // minBufferMs: 最小缓冲 15 秒（默认 50s 易在老电视上引发 OOM）
-                    30000, // maxBufferMs: 最大缓冲 30 秒
-                    2500,  // bufferForPlaybackMs: 播放前最少缓冲 2.5 秒
-                    5000   // bufferForPlaybackAfterRebufferMs: 卡顿后重新播放前最少缓冲 5 秒
-                )
-                .build();
-
-        // 用 renderersFactory、mediaSourceFactory 和 loadControl 来构建播放器实例
-        player = new ExoPlayer.Builder(this)
-            .setRenderersFactory(renderersFactory)
-            .setMediaSourceFactory(mediaSourceFactory)
-            .setLoadControl(loadControl)
-            .build();
-
-        playerView.setPlayer(player);
-
-        player.addListener(new Player.Listener() {
-            @Override
-            public void onPlaybackStateChanged(int state) {
-                switch (state) {
-                    case Player.STATE_BUFFERING:
-                        layoutLoading.setVisibility(View.VISIBLE);
-                        textLoadingStatus.setText(R.string.loading_stream);
-                        break;
-                    case Player.STATE_READY:
-                        layoutLoading.setVisibility(View.GONE);
-                        showInfoOverlay();
-                        break;
-                    case Player.STATE_ENDED:
-                        if (isCatchupMode) {
-                            // 回看节目播放完毕后，自动切回直播状态
-                            isCatchupMode = false;
-                            layoutController.setVisibility(View.GONE);
-                            playChannel(currentChannel);
-                            Toast.makeText(MainActivity.this, "回看节目已播完，自动切回直播", Toast.LENGTH_SHORT).show();
-                        }
-                        break;
-                }
+    private void stopIjkPlayer() {
+        try {
+            if (ijkPlayer != null) {
+                ijkPlayer.stop();
             }
+        } catch (Exception e) {
+            Log.e(TAG, "stopIjkPlayer failed", e);
+        }
+    }
 
-            @Override
-            public void onPlayerError(@NonNull PlaybackException error) {
-                Log.e(TAG, "ExoPlayer Error: ", error);
-                
-                // 仅在直播模式下支持自动换线/换源
-                if (!isCatchupMode && currentChannel != null && currentChannel.getLiveUrls().size() > 1) {
-                    layoutLoading.setVisibility(View.VISIBLE);
-                    textLoadingStatus.setText("当前线路加载失败，正在尝试自动换线...");
-                    
-                    if (autoSwitchLineRunnable != null) {
-                        tvHandler.removeCallbacks(autoSwitchLineRunnable);
-                    }
-                    autoSwitchLineRunnable = new Runnable() {
-                        @Override
-                        public void run() {
-                            switchLine(true); // 自动尝试切下一条线路
-                        }
-                    };
-                    tvHandler.postDelayed(autoSwitchLineRunnable, 3000);
-                } else {
-                    layoutLoading.setVisibility(View.VISIBLE);
-                    textLoadingStatus.setText(R.string.parse_failed);
-                    
-                    // 回看加载失败或直播单线路失败，延时重试当前源
-                    tvHandler.postDelayed(new Runnable() {
-                        @Override
-                        public void run() {
-                            if (isCatchupMode && currentCatchupProgram != null) {
-                                playCatchup(currentChannel, currentCatchupProgram);
-                            } else if (currentChannel != null) {
-                                playChannel(currentChannel);
-                            }
-                        }
-                    }, 3000);
-                }
+    private void releaseIjkPlayer() {
+        try {
+            if (ijkPlayer != null) {
+                ijkPlayer.stop();
+                ijkPlayer.setDisplay(null);
+                ijkPlayer.setSurface(null);
+                ijkPlayer.release();
+                ijkPlayer = null;
             }
-        });
+        } catch (Exception e) {
+            Log.e(TAG, "releaseIjkPlayer failed", e);
+        }
     }
 
     private void loadLiveChannels() {
@@ -611,8 +565,6 @@ public class MainActivity extends AppCompatActivity {
         currentChannel = channel;
         currentCategory = channel.getGroup();
 
-        player.stop();
-
         String url = channel.getPlayUrl();
         if (url == null) {
             Toast.makeText(this, "该频道暂无播放信号", Toast.LENGTH_SHORT).show();
@@ -620,11 +572,7 @@ public class MainActivity extends AppCompatActivity {
         }
 
         url = proxyUrlIfNeeded(url);
-
-        MediaItem mediaItem = MediaItem.fromUri(url);
-        player.setMediaItem(mediaItem);
-        player.prepare();
-        player.play();
+        startVideo(url);
 
         // 提示框展现台号 + 频道名 + 线路 (例: CCTV1 [线路 1/3])
         String lineInfo = "";
@@ -637,7 +585,7 @@ public class MainActivity extends AppCompatActivity {
         // 直播模式下强制隐藏进度条
         layoutController.setVisibility(View.GONE);
 
-        // 缓存当前的播放状态，以便开机自启续播（保存原始 URL、台号与专属线路索引，防止代理或动态 token 导致状态丢失）
+        // 缓存当前的播放状态，以便开机自启续播
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         SharedPreferences.Editor editor = prefs.edit();
         editor.putString(KEY_LAST_URL, channel.getPlayUrl());
@@ -646,9 +594,6 @@ public class MainActivity extends AppCompatActivity {
         editor.apply();
     }
 
-    /**
-     * 播放回看节目
-     */
     private void playCatchup(Channel channel, CatchupProgram program) {
         if (channel == null || program == null) return;
         if (autoSwitchLineRunnable != null) {
@@ -657,8 +602,6 @@ public class MainActivity extends AppCompatActivity {
         }
         isCatchupMode = true;
         currentCatchupProgram = program;
-
-        player.stop();
 
         String tvodBaseUrl = channel.getTvodUrl();
         if (tvodBaseUrl == null) {
@@ -671,13 +614,9 @@ public class MainActivity extends AppCompatActivity {
         String catchupUrl = tvodBaseUrl + separator + "playseek=" + program.beginTime + "-" + program.endTime;
 
         catchupUrl = proxyUrlIfNeeded(catchupUrl);
-
         Log.i(TAG, "Playing catchup URL: " + catchupUrl);
 
-        MediaItem mediaItem = MediaItem.fromUri(catchupUrl);
-        player.setMediaItem(mediaItem);
-        player.prepare();
-        player.play();
+        startVideo(catchupUrl);
 
         // 提示浮窗中展示
         textOverlayName.setText(channel.getName() + " [历史回放]");
@@ -686,6 +625,166 @@ public class MainActivity extends AppCompatActivity {
         // 展现底部回看操作控制条
         btnPlayPause.setText("⏸");
         showController();
+    }
+
+    private void startVideo(final String url) {
+        releaseIjkPlayer();
+
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                layoutLoading.setVisibility(View.VISIBLE);
+                textLoadingStatus.setText(R.string.loading_stream);
+            }
+        });
+
+        try {
+            ijkPlayer = new IjkMediaPlayer();
+
+            // 启用 MediaCodec 硬解 (1为开启)；如硬解失败，ijkplayer 自动在底层无缝切换至 FFmpeg 软解，极富抗灾性
+            ijkPlayer.setOption(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "mediacodec", 1);
+            ijkPlayer.setOption(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "mediacodec-auto-rotate", 1);
+            ijkPlayer.setOption(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "mediacodec-handle-resolution-change", 1);
+
+            // 禁用 OpenSL ES，改用系统兼容性最强的原生 AudioTrack 框架以适配老电视音频驱动
+            ijkPlayer.setOption(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "opensles", 0);
+            ijkPlayer.setOption(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "overlay-format", IjkMediaPlayer.SDL_FCC_RV32);
+            
+            // 允许跳帧以防音视频不同步
+            ijkPlayer.setOption(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "framedrop", 1);
+            ijkPlayer.setOption(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "start-on-prepared", 1);
+
+            // 禁用 packet-buffering 缓冲区，取消多余网络缓存延迟，实现秒切换台
+            ijkPlayer.setOption(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "packet-buffering", 0);
+
+            // 针对 HLS (M3U8) 直播流进行播放探测优化
+            ijkPlayer.setOption(IjkMediaPlayer.OPT_CATEGORY_FORMAT, "http-detect-range-support", 0);
+            ijkPlayer.setOption(IjkMediaPlayer.OPT_CATEGORY_FORMAT, "analyzeduration", 1000000); // 1秒分析时长
+            ijkPlayer.setOption(IjkMediaPlayer.OPT_CATEGORY_FORMAT, "probesize", 1024 * 64);      // 64KB探测首包大小
+            ijkPlayer.setOption(IjkMediaPlayer.OPT_CATEGORY_FORMAT, "flush_packets", 1);
+
+            // 配置防盗链 User-Agent
+            String userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/102.0.0.0 Safari/537.36";
+            ijkPlayer.setOption(IjkMediaPlayer.OPT_CATEGORY_FORMAT, "user-agent", userAgent);
+
+            if (playSurface != null) {
+                ijkPlayer.setSurface(playSurface);
+            }
+
+            // 监听：准备完成
+            ijkPlayer.setOnPreparedListener(new IMediaPlayer.OnPreparedListener() {
+                @Override
+                public void onPrepared(IMediaPlayer mp) {
+                    Log.i(TAG, "IjkPlayer onPrepared, start playing");
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            layoutLoading.setVisibility(View.GONE);
+                            showInfoOverlay();
+                        }
+                    });
+                    mp.start();
+                }
+            });
+
+            // 监听：播放出错，执行自动换线 (切源) 或延时重试
+            ijkPlayer.setOnErrorListener(new IMediaPlayer.OnErrorListener() {
+                @Override
+                public boolean onError(IMediaPlayer mp, int what, int extra) {
+                    Log.e(TAG, "IjkPlayer Error occurred: what=" + what + ", extra=" + extra);
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            if (!isCatchupMode && currentChannel != null && currentChannel.getLiveUrls().size() > 1) {
+                                layoutLoading.setVisibility(View.VISIBLE);
+                                textLoadingStatus.setText("当前线路加载失败，正在尝试自动换线...");
+
+                                if (autoSwitchLineRunnable != null) {
+                                    tvHandler.removeCallbacks(autoSwitchLineRunnable);
+                                }
+                                autoSwitchLineRunnable = new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        switchLine(true);
+                                    }
+                                };
+                                tvHandler.postDelayed(autoSwitchLineRunnable, 3000);
+                            } else {
+                                layoutLoading.setVisibility(View.VISIBLE);
+                                textLoadingStatus.setText(R.string.parse_failed);
+
+                                tvHandler.postDelayed(new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        if (isCatchupMode && currentCatchupProgram != null) {
+                                            playCatchup(currentChannel, currentCatchupProgram);
+                                        } else if (currentChannel != null) {
+                                            playChannel(currentChannel);
+                                        }
+                                    }
+                                }, 3000);
+                            }
+                        }
+                    });
+                    return true; // 返回true代表我们内部已处理完毕
+                }
+            });
+
+            // 监听：缓冲信息更新以实时展现加载状态
+            ijkPlayer.setOnInfoListener(new IMediaPlayer.OnInfoListener() {
+                @Override
+                public boolean onInfo(IMediaPlayer mp, int what, int extra) {
+                    if (what == IMediaPlayer.MEDIA_INFO_BUFFERING_START) {
+                        runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                layoutLoading.setVisibility(View.VISIBLE);
+                                textLoadingStatus.setText(R.string.loading_stream);
+                            }
+                        });
+                    } else if (what == IMediaPlayer.MEDIA_INFO_BUFFERING_END) {
+                        runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                layoutLoading.setVisibility(View.GONE);
+                            }
+                        });
+                    }
+                    return true;
+                }
+            });
+
+            // 监听：回看节目播放完毕切换回直播状态
+            ijkPlayer.setOnCompletionListener(new IMediaPlayer.OnCompletionListener() {
+                @Override
+                public void onCompletion(IMediaPlayer mp) {
+                    if (isCatchupMode) {
+                        runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                isCatchupMode = false;
+                                layoutController.setVisibility(View.GONE);
+                                playChannel(currentChannel);
+                                Toast.makeText(MainActivity.this, "回看节目已播完，自动切回直播", Toast.LENGTH_SHORT).show();
+                            }
+                        });
+                    }
+                }
+            });
+
+            ijkPlayer.setDataSource(url);
+            ijkPlayer.prepareAsync();
+
+        } catch (Exception e) {
+            Log.e(TAG, "IjkPlayer setup failed", e);
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    layoutLoading.setVisibility(View.VISIBLE);
+                    textLoadingStatus.setText(R.string.parse_failed);
+                }
+            });
+        }
     }
 
     /**
@@ -875,12 +974,12 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void togglePlayPause() {
-        if (player == null || !isCatchupMode) return;
-        if (player.isPlaying()) {
-            player.pause();
+        if (ijkPlayer == null || !isCatchupMode) return;
+        if (ijkPlayer.isPlaying()) {
+            ijkPlayer.pause();
             btnPlayPause.setText("▶");
         } else {
-            player.play();
+            ijkPlayer.start();
             btnPlayPause.setText("⏸");
         }
         showController();
@@ -938,10 +1037,10 @@ public class MainActivity extends AppCompatActivity {
                 case KeyEvent.KEYCODE_DPAD_LEFT:
                 case KeyEvent.KEYCODE_DPAD_RIGHT:
                     // 回看模式下按左右键：实现流畅的缓动 Seek 快退/快进
-                    long duration = player.getDuration();
+                    long duration = ijkPlayer != null ? ijkPlayer.getDuration() : 0;
                     if (duration > 0) {
                         if (tempSeekPosition == -1) {
-                            tempSeekPosition = player.getCurrentPosition();
+                            tempSeekPosition = ijkPlayer.getCurrentPosition();
                         }
                         long offset = (keyCode == KeyEvent.KEYCODE_DPAD_LEFT) ? -30000 : 30000;
                         tempSeekPosition += offset;
@@ -1112,9 +1211,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onStop() {
         super.onStop();
-        if (player != null) {
-            player.stop();
-        }
+        stopIjkPlayer();
     }
 
     @Override
@@ -1124,10 +1221,7 @@ public class MainActivity extends AppCompatActivity {
             proxyServer = null;
         }
         super.onDestroy();
-        if (player != null) {
-            player.release();
-            player = null;
-        }
+        releaseIjkPlayer();
         tvHandler.removeCallbacksAndMessages(null);
     }
 

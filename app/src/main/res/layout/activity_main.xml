@@ -5,16 +5,13 @@
     android:layout_height="match_parent"
     android:background="@color/black">
 
-    <!-- 全屏 ExoPlayer 播放器组件 -->
-    <com.google.android.exoplayer2.ui.PlayerView
+    <!-- 全屏 视频渲染容器 -->
+    <TextureView
         android:id="@+id/player_view"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:clickable="true"
-        android:focusable="true"
-        app:use_controller="false"
-        app:surface_type="texture_view"
-        app:resize_mode="fill" />
+        android:focusable="true" />
 
     <!-- 侧边栏选择菜单：包含分类列表、频道列表、回看时段列表 -->
     <LinearLayout

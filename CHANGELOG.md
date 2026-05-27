@@ -2,6 +2,22 @@
 
 本项目专注于为老电视及机顶盒（Android 4.1+, API 16+）与智能触屏手机提供完美的兼容性、流畅的遥控与触屏操作、以及极致的流媒体播放体验。
 
+## [V1.4.0] - 2026-05-27
+### 重构 (Refactored)
+* **全面重构播放器引擎为内置 FFmpeg 解码的 IjkPlayer**：
+  * **解决大部分源在老电视解析失败硬伤**：由于 ExoPlayer 深度依赖系统底层的 MediaCodec 硬件解码器，在 Android 4.4 等低配置老电视（如乐视 max70）上极易因为芯片不支持现代高清 Profile 或者是音频编码兼容缺陷导致初始化失败（报错“解析失败”）。我们彻底弃用了 ExoPlayer，重构并全量引入在智能电视上兼容性极佳的 **IjkPlayer (基于 FFmpeg 0.8.8 稳定版)**。
+  * **FFmpeg 独立软解及硬解自动降级**：所有视频流协议的解复用（Demux）和音视频解码均在 C/C++ native 层由高度优化、强力容错的 FFmpeg 独立完成，不依赖电视系统底层的硬解芯片。同时配置硬解优先，在硬解初始化失败时自动无缝降级到软解，彻底救活大量高清 H.264/H.265 直播源。
+  * **界面层全屏 TextureView 替换**：在 [activity_main.xml](file:///d:/开发/老电视直播软件/app/src/main/res/layout/activity_main.xml) 中将原有的 `PlayerView` 替换为原生的 `TextureView`，不仅提供了轻量级的渲染通路，还完美规避了 `SurfaceView` 对 OSD 菜单、侧边栏焦点的遮挡缺陷。
+  * **IjkPlayer 电视端专属调优**：
+    * 禁用 `packet-buffering` 缓冲区，省去多余的网络缓存延迟，实现换台瞬间秒开；
+    * 限制 HLS 探测的 `analyzeduration` 为 1 秒，`probesize` 为 64KB，大幅提升首帧加载出画速度；
+    * 禁用 `OpenSL ES`，改用系统兼容性最强的 `AudioTrack` 进行音频输出，适配老电视的陈旧音频驱动；
+    * 挂接 `SurfaceTextureListener`，在 Surface 的 Available 和 Destroyed 阶段分别绑定和释放物理 Surface，保障生命周期与底层播放器的安全脱耦。
+### 移除 (Removed)
+* 彻底移除了 `com.google.android.exoplayer:exoplayer` (ExoPlayer 2.19.1) 全量依赖库，从而精炼了安装包结构，大幅缩减了老电视运存负载。
+
+---
+
 ## [V1.3.9] - 2026-05-27
 ### 修复 (Fixed)
 * **老旧电视（API <= 22）上由于过度代理引起普通 HTTP 源连接失败**：
