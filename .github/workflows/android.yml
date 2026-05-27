@@ -27,7 +27,16 @@ jobs:
         echo "$GITHUB_WORKSPACE/gradle-7.4/bin" >> $GITHUB_PATH
 
     - name: Build with Gradle
-      run: gradle assembleDebug --stacktrace
+      run: gradle assembleDebug --stacktrace > build.log 2>&1
+
+    - name: Commit and Push build log on failure
+      if: failure()
+      run: |
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        git add build.log
+        git commit -m "build failed: upload log [skip ci]"
+        git push origin master
 
     - name: Upload Debug APK
       uses: actions/upload-artifact@v4
