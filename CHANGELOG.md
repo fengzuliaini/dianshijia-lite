@@ -17,6 +17,7 @@
 * 彻底移除了 `com.google.android.exoplayer:exoplayer` (ExoPlayer 2.19.1) 全量依赖库，从而精炼了安装包结构，大幅缩减了老电视运存负载。
 ### 修复 (Fixed)
 * **Actions 构建环境兼容**：将 `compileSdk` 回滚为 `33`，`targetSdk` 回滚为 `30`，以解决 GitHub Actions 在 JDK11 容器下编译 API 34 时的 Gradle 版本不匹配报错，保障云端自动化打包流程畅通。
+* **IjkPlayer 依赖解析失败**：在 `settings.gradle` 中引入 `jcenter()` 依赖托管仓库，解决构建工具在 `google()` 与 `mavenCentral()` 中无法找到并下载 `tv.danmaku.ijk.media:ijkplayer-java:0.8.8` 等核心库依赖的编译阻断问题。
 
 ---
 
