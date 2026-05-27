@@ -1333,12 +1333,41 @@ public class MainActivity extends AppCompatActivity {
                 .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
                 .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS);
             
-            if (android.os.Build.VERSION.SDK_INT >= 16 && android.os.Build.VERSION.SDK_INT <= 20) {
-                try {
-                    javax.net.ssl.SSLContext sslContext = javax.net.ssl.SSLContext.getInstance("TLSv1.2");
-                    sslContext.init(null, null, null);
-                    builder.sslSocketFactory(new TLSSocketFactory(sslContext.getSocketFactory()));
-                } catch (Exception ignored) {}
+            try {
+                // 1. 全局配置忽略所有 SSL 证书的信任管理器，彻底消灭老电视根证书过期导致的 SSL 握手异常
+                final javax.net.ssl.TrustManager[] trustAllCerts = new javax.net.ssl.TrustManager[]{
+                    new javax.net.ssl.X509TrustManager() {
+                        @Override
+                        public void checkClientTrusted(java.security.cert.X509Certificate[] chain, String authType) {}
+                        @Override
+                        public void checkServerTrusted(java.security.cert.X509Certificate[] chain, String authType) {}
+                        @Override
+                        public java.security.cert.X509Certificate[] getAcceptedIssuers() {
+                            return new java.security.cert.X509Certificate[0];
+                        }
+                    }
+                };
+
+                // 2. 初始化 SSLContext，支持 TLS 1.2
+                javax.net.ssl.SSLContext sslContext = javax.net.ssl.SSLContext.getInstance("TLSv1.2");
+                sslContext.init(null, trustAllCerts, new java.security.SecureRandom());
+                
+                // 3. 对老电视 (API <= 20) 注入强制开启 TLS 1.2 / 1.1 的 Socket 工厂，对高版本使用标准套件
+                if (android.os.Build.VERSION.SDK_INT <= 20) {
+                    builder.sslSocketFactory(new TLSSocketFactory(sslContext.getSocketFactory()), (javax.net.ssl.X509TrustManager) trustAllCerts[0]);
+                } else {
+                    builder.sslSocketFactory(sslContext.getSocketFactory(), (javax.net.ssl.X509TrustManager) trustAllCerts[0]);
+                }
+                
+                // 4. 忽略域名验证以提高兼容度
+                builder.hostnameVerifier(new javax.net.ssl.HostnameVerifier() {
+                    @Override
+                    public boolean verify(String hostname, javax.net.ssl.SSLSession session) {
+                        return true;
+                    }
+                });
+            } catch (Exception e) {
+                Log.e("LocalProxyServer", "Failed to setup trust-all SSL configuration", e);
             }
             this.okHttpClient = builder.build();
         }

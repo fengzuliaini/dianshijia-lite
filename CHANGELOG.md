@@ -4,6 +4,13 @@
 
 ---
 
+## [V1.3.7] - 2026-05-27
+### 修复 (Fixed)
+* **老电视 HTTPS 根证书过期与域名冲突引起拉流解析失败**：
+  * **忽略证书和域名校验 (Trust-All)**：在本地代理服务 `LocalProxyServer` 的 OkHttpClient 中，全局重构并引入忽略全部 SSL/CA 证书信任链校验的 `TrustManager` 以及忽略主机名验证的 `HostnameVerifier`。彻底扫清因老电视（如乐视 max70）内置根证书过期（如 Let's Encrypt 证书失效）或重定向域名证书冲突导致的 `SSLHandshakeException` 握手死锁，救活大批受制于证书过期的现代 HTTPS 高清源。
+
+---
+
 ## [V1.3.6] - 2026-05-27
 ### 优化 (Improved)
 * **寻回丢失直播线路并支持清晰度优先排序**：
