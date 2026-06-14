@@ -10,10 +10,14 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        // 注释掉临时故障的阿里镜像站，Actions 虚拟机在海外直接使用官方源更稳定
-        // maven { url 'https://maven.aliyun.com/repository/google' }
-        // maven { url 'https://maven.aliyun.com/repository/public' }
-        // maven { url 'https://maven.aliyun.com/repository/jcenter' }
+        // 腾讯云 Maven 镜像源
+        maven { url 'https://mirrors.cloud.tencent.com/nexus/repository/maven-public/' }
+        // 华为云 Maven 镜像源
+        maven { url 'https://repo.huaweicloud.com/repository/maven/' }
+        // 阿里云 Maven 镜像源
+        maven { url 'https://maven.aliyun.com/repository/google' }
+        maven { url 'https://maven.aliyun.com/repository/public' }
+        maven { url 'https://maven.aliyun.com/repository/jcenter' }
         jcenter()
     }
 }
