@@ -72,16 +72,14 @@ public class EpgParser {
             gzis = new GZIPInputStream(is);
             doParseXml(gzis, channels);
             Log.i(TAG, "本地 EPG 缓存解析成功");
-            
-            // 在主线程执行完成回调
-            if (onComplete != null) {
-                new Handler(Looper.getMainLooper()).post(onComplete);
-            }
-        } catch (Exception e) {
-            Log.e(TAG, "解析本地 EPG 缓存失败", e);
+        } catch (Throwable t) {
+            Log.e(TAG, "解析本地 EPG 缓存失败", t);
         } finally {
             closeQuietly(gzis);
             closeQuietly(is);
+            if (onComplete != null) {
+                new Handler(Looper.getMainLooper()).post(onComplete);
+            }
         }
     }
 
@@ -90,7 +88,6 @@ public class EpgParser {
         try {
             Response response = okHttpClient.newCall(request).execute();
             if (response.isSuccessful() && response.body() != null) {
-                // 先写入临时文件，避免写入中断损坏已有的缓存文件
                 File tmpFile = new File(context.getCacheDir(), CACHE_FILE_NAME + ".tmp");
                 InputStream is = response.body().byteStream();
                 FileOutputStream fos = new FileOutputStream(tmpFile);
@@ -103,22 +100,33 @@ public class EpgParser {
                 fos.close();
                 is.close();
 
-                // 重命名临时文件覆盖旧缓存
                 if (tmpFile.renameTo(cacheFile)) {
                     Log.i(TAG, "最新 EPG 节目单下载并缓存成功，重新解析最新数据...");
                     parseLocalCache(cacheFile, channels, onComplete);
                 }
             } else {
                 Log.e(TAG, "下载 EPG 失败，HTTP 错误码: " + response.code());
+                if (onComplete != null) {
+                    new Handler(Looper.getMainLooper()).post(onComplete);
+                }
             }
         } catch (Exception e) {
             Log.e(TAG, "下载或保存 EPG 文件失败", e);
+            if (onComplete != null) {
+                new Handler(Looper.getMainLooper()).post(onComplete);
+            }
         }
     }
 
     private static void doParseXml(InputStream is, List<Channel> channels) throws Exception {
         Map<String, String> displayNameToIdMap = new HashMap<>();
         Map<String, String> normalizedNameToIdMap = new HashMap<>();
+        Map<String, Channel> epgIdToChannelMap = new HashMap<>();
+
+        for (Channel c : channels) {
+            c.setEpgId(null);
+            c.getEpgPrograms().clear();
+        }
 
         XmlPullParser parser = Xml.newPullParser();
         parser.setInput(is, "UTF-8");
@@ -128,14 +136,30 @@ public class EpgParser {
         String currentText = null;
         CatchupProgram currentProgram = null;
 
-        boolean mappingDone = false;
-        Map<String, Channel> epgIdToChannelMap = new HashMap<>();
-
         long now = System.currentTimeMillis();
         SimpleDateFormat xmlDateFormat = new SimpleDateFormat("yyyyMMddHHmmss", Locale.getDefault());
 
         SimpleDateFormat sdfTime = new SimpleDateFormat("HH:mm", Locale.getDefault());
         SimpleDateFormat sdfDay = new SimpleDateFormat("MM-dd", Locale.getDefault());
+
+        Calendar calNow = Calendar.getInstance();
+        calNow.setTimeInMillis(now);
+        int nowYear = calNow.get(Calendar.YEAR);
+        int nowDay = calNow.get(Calendar.DAY_OF_YEAR);
+
+        Calendar calYes = Calendar.getInstance();
+        calYes.setTimeInMillis(now);
+        calYes.add(Calendar.DAY_OF_YEAR, -1);
+        int yesYear = calYes.get(Calendar.YEAR);
+        int yesDay = calYes.get(Calendar.DAY_OF_YEAR);
+
+        Calendar calBeforeYes = Calendar.getInstance();
+        calBeforeYes.setTimeInMillis(now);
+        calBeforeYes.add(Calendar.DAY_OF_YEAR, -2);
+        int beforeYesYear = calBeforeYes.get(Calendar.YEAR);
+        int beforeYesDay = calBeforeYes.get(Calendar.DAY_OF_YEAR);
+
+        Calendar calDate = Calendar.getInstance();
 
         while (eventType != XmlPullParser.END_DOCUMENT) {
             String tag = parser.getName();
@@ -144,13 +168,6 @@ public class EpgParser {
                     if ("channel".equals(tag)) {
                         currentChannelId = parser.getAttributeValue(null, "id");
                     } else if ("programme".equals(tag)) {
-                        // 一旦遇到第一个 programme 标签，说明所有的 channel 映射表都已经收集完毕
-                        // 此时，我们对 M3U 里的所有 Channel 进行一次映射绑定
-                        if (!mappingDone) {
-                            performChannelMapping(channels, displayNameToIdMap, normalizedNameToIdMap, epgIdToChannelMap);
-                            mappingDone = true;
-                        }
-
                         String channelId = parser.getAttributeValue(null, "channel");
                         if (channelId != null && epgIdToChannelMap.containsKey(channelId)) {
                             String startVal = parser.getAttributeValue(null, "start");
@@ -165,7 +182,6 @@ public class EpgParser {
                                     long startTimeMs = startDate.getTime();
                                     long endTimeMs = endDate.getTime();
 
-                                    // 收集全天节目（不再只过滤历史节目，以提供完整的当前/未来节目数据）
                                     currentProgram = new CatchupProgram();
                                     currentProgram.beginTime = start14;
                                     currentProgram.endTime = stop14;
@@ -173,7 +189,21 @@ public class EpgParser {
                                     currentProgram.endTimeMs = endTimeMs;
                                     currentProgram.isLive = false;
 
-                                    String dayLabel = getDayLabel(startDate, now, sdfDay);
+                                    calDate.setTime(startDate);
+                                    int pYear = calDate.get(Calendar.YEAR);
+                                    int pDay = calDate.get(Calendar.DAY_OF_YEAR);
+
+                                    String dayLabel;
+                                    if (pYear == nowYear && pDay == nowDay) {
+                                        dayLabel = "今天";
+                                    } else if (pYear == yesYear && pDay == yesDay) {
+                                        dayLabel = "昨天";
+                                    } else if (pYear == beforeYesYear && pDay == beforeYesDay) {
+                                        dayLabel = "前天";
+                                    } else {
+                                        dayLabel = sdfDay.format(startDate);
+                                    }
+
                                     currentProgram.timeLabel = dayLabel + " " + sdfTime.format(startDate) + " - " + sdfTime.format(endDate);
                                 } catch (Exception e) {
                                     currentProgram = null;
@@ -199,11 +229,13 @@ public class EpgParser {
                             normalizedNameToIdMap.put(normName, currentChannelId);
                         }
                     } else if ("channel".equals(tag)) {
+                        if (currentChannelId != null) {
+                            matchSingleChannel(currentChannelId, displayNameToIdMap, normalizedNameToIdMap, epgIdToChannelMap, channels);
+                        }
                         currentChannelId = null;
                     } else if ("title".equals(tag) && currentProgram != null && currentText != null) {
                         String title = currentText.trim();
                         currentProgram.programName = title;
-                        // 将节目名称拼接到 timeLabel 中，例如 "今天 19:00 - 19:30 新闻联播"
                         currentProgram.timeLabel = currentProgram.timeLabel + " " + title;
                     } else if ("programme".equals(tag)) {
                         if (currentProgram != null) {
@@ -219,33 +251,7 @@ public class EpgParser {
             }
             eventType = parser.next();
         }
-    }
 
-    private static void performChannelMapping(List<Channel> channels,
-                                              Map<String, String> displayNameToIdMap,
-                                              Map<String, String> normalizedNameToIdMap,
-                                              Map<String, Channel> epgIdToChannelMap) {
-        epgIdToChannelMap.clear();
-        for (Channel c : channels) {
-            c.getEpgPrograms().clear(); // 清理以前的数据
-
-            String nameLower = c.getName().toLowerCase();
-            String nameNorm = normalizeChannelName(c.getName());
-
-            // 1. 优先尝试精确匹配
-            String matchedId = displayNameToIdMap.get(nameLower);
-            if (matchedId == null) {
-                // 2. 其次尝试归一化匹配
-                matchedId = normalizedNameToIdMap.get(nameNorm);
-            }
-
-            if (matchedId != null) {
-                c.setEpgId(matchedId);
-                epgIdToChannelMap.put(matchedId, c);
-            }
-        }
-        
-        // 对每个频道的节目单进行按时间戳升序排序，防 XMLTV 乱序
         for (Channel c : channels) {
             if (!c.getEpgPrograms().isEmpty()) {
                 java.util.Collections.sort(c.getEpgPrograms(), new java.util.Comparator<CatchupProgram>() {
@@ -256,13 +262,34 @@ public class EpgParser {
                 });
             }
         }
-        Log.i(TAG, "EPG 匹配完成，成功匹配 " + epgIdToChannelMap.size() + "/" + channels.size() + " 个频道");
     }
 
-    /**
-     * 归一化频道名以提高匹配率
-     * 去除空格、横杠以及“高清”、“超清”、“[高清]”、“综合”、“频道”等电视盒子中常见的修饰词
-     */
+    private static void matchSingleChannel(String epgChannelId,
+                                           Map<String, String> displayNameToIdMap,
+                                           Map<String, String> normalizedNameToIdMap,
+                                           Map<String, Channel> epgIdToChannelMap,
+                                           List<Channel> channels) {
+        for (Channel c : channels) {
+            if (c.getEpgId() != null) {
+                continue;
+            }
+
+            String nameLower = c.getName().toLowerCase();
+            String nameNorm = normalizeChannelName(c.getName());
+
+            String matchedId = displayNameToIdMap.get(nameLower);
+            if (matchedId == null) {
+                matchedId = normalizedNameToIdMap.get(nameNorm);
+            }
+
+            if (epgChannelId.equals(matchedId)) {
+                c.setEpgId(epgChannelId);
+                epgIdToChannelMap.put(epgChannelId, c);
+                break;
+            }
+        }
+    }
+
     private static String normalizeChannelName(String name) {
         if (name == null) return "";
         return name.toLowerCase()
@@ -274,37 +301,6 @@ public class EpgParser {
                    .replaceAll("超清", "")
                    .replaceAll("\\[.*\\]", "")
                    .replaceAll("\\(.*\\)", "");
-    }
-
-    private static String getDayLabel(Date date, long now, SimpleDateFormat sdfDay) {
-        Calendar calNow = Calendar.getInstance();
-        calNow.setTimeInMillis(now);
-
-        Calendar calDate = Calendar.getInstance();
-        calDate.setTime(date);
-
-        if (calNow.get(Calendar.YEAR) == calDate.get(Calendar.YEAR) &&
-            calNow.get(Calendar.DAY_OF_YEAR) == calDate.get(Calendar.DAY_OF_YEAR)) {
-            return "今天";
-        }
-
-        Calendar calYesterday = Calendar.getInstance();
-        calYesterday.setTimeInMillis(now);
-        calYesterday.add(Calendar.DAY_OF_YEAR, -1);
-        if (calYesterday.get(Calendar.YEAR) == calDate.get(Calendar.YEAR) &&
-            calYesterday.get(Calendar.DAY_OF_YEAR) == calDate.get(Calendar.DAY_OF_YEAR)) {
-            return "昨天";
-        }
-
-        Calendar calBeforeYesterday = Calendar.getInstance();
-        calBeforeYesterday.setTimeInMillis(now);
-        calBeforeYesterday.add(Calendar.DAY_OF_YEAR, -2);
-        if (calBeforeYesterday.get(Calendar.YEAR) == calDate.get(Calendar.YEAR) &&
-            calBeforeYesterday.get(Calendar.DAY_OF_YEAR) == calDate.get(Calendar.DAY_OF_YEAR)) {
-            return "前天";
-        }
-
-        return sdfDay.format(date);
     }
 
     private static void closeQuietly(InputStream is) {
