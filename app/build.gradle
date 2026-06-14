@@ -25,8 +25,8 @@ android {
         applicationId "com.dianshijia.lite"
         minSdk 16
         targetSdk 30
-        versionCode 14
-        versionName "1.5.1"
+        versionCode 15
+        versionName "1.5.2"
         multiDexEnabled true
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"

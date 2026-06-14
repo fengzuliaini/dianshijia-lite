@@ -83,7 +83,7 @@ public class EpgParser {
         }
     }
 
-    private static void downloadAndParseEpg(final Context context, String url, final File cacheFile, final List<Channel> channels, final Runnable onComplete) {
+    private static void downloadAndParseEpg(final Context context, final String url, final File cacheFile, final List<Channel> channels, final Runnable onComplete) {
         Request request = new Request.Builder().url(url).build();
         try {
             Response response = okHttpClient.newCall(request).execute();
@@ -106,12 +106,54 @@ public class EpgParser {
                 }
             } else {
                 Log.e(TAG, "下载 EPG 失败，HTTP 错误码: " + response.code());
-                if (onComplete != null) {
-                    new Handler(Looper.getMainLooper()).post(onComplete);
-                }
+                tryHttpFallback(context, url, cacheFile, channels, onComplete);
             }
         } catch (Exception e) {
-            Log.e(TAG, "下载或保存 EPG 文件失败", e);
+            Log.e(TAG, "下载或保存 EPG 文件失败: " + e.getMessage());
+            tryHttpFallback(context, url, cacheFile, channels, onComplete);
+        }
+    }
+
+    private static void tryHttpFallback(final Context context, String url, final File cacheFile, final List<Channel> channels, final Runnable onComplete) {
+        if (url.startsWith("https://")) {
+            final String fallbackUrl = url.replace("https://", "http://");
+            Log.i(TAG, "HTTPS 下载失败，尝试降级到 HTTP 重新下载: " + fallbackUrl);
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    Request request = new Request.Builder().url(fallbackUrl).build();
+                    try {
+                        Response response = okHttpClient.newCall(request).execute();
+                        if (response.isSuccessful() && response.body() != null) {
+                            File tmpFile = new File(context.getCacheDir(), CACHE_FILE_NAME + ".tmp");
+                            InputStream is = response.body().byteStream();
+                            FileOutputStream fos = new FileOutputStream(tmpFile);
+                            byte[] buf = new byte[8192];
+                            int len;
+                            while ((len = is.read(buf)) != -1) {
+                                fos.write(buf, 0, len);
+                            }
+                            fos.flush();
+                            fos.close();
+                            is.close();
+
+                            if (tmpFile.renameTo(cacheFile)) {
+                                Log.i(TAG, "降级 HTTP 下载并缓存 EPG 成功，重新解析最新数据...");
+                                parseLocalCache(cacheFile, channels, onComplete);
+                                return; // 成功后直接返回，parseLocalCache 会触发 onComplete
+                            }
+                        } else {
+                            Log.e(TAG, "降级 HTTP 下载 EPG 失败，HTTP 错误码: " + response.code());
+                        }
+                    } catch (Exception ex) {
+                        Log.e(TAG, "降级 HTTP 下载 EPG 抛出异常", ex);
+                    }
+                    if (onComplete != null) {
+                        new Handler(Looper.getMainLooper()).post(onComplete);
+                    }
+                }
+            }).start();
+        } else {
             if (onComplete != null) {
                 new Handler(Looper.getMainLooper()).post(onComplete);
             }
@@ -133,7 +175,7 @@ public class EpgParser {
         int eventType = parser.getEventType();
 
         String currentChannelId = null;
-        String currentText = null;
+        StringBuilder currentText = new StringBuilder();
         CatchupProgram currentProgram = null;
 
         long now = System.currentTimeMillis();
@@ -165,6 +207,7 @@ public class EpgParser {
             String tag = parser.getName();
             switch (eventType) {
                 case XmlPullParser.START_TAG:
+                    currentText.setLength(0); // 开启新标签前，安全清空缓冲
                     if ("channel".equals(tag)) {
                         currentChannelId = parser.getAttributeValue(null, "id");
                     } else if ("programme".equals(tag)) {
@@ -216,12 +259,12 @@ public class EpgParser {
                     break;
 
                 case XmlPullParser.TEXT:
-                    currentText = parser.getText();
+                    currentText.append(parser.getText()); // 累加缓冲，防止文本截断碎片化
                     break;
 
                 case XmlPullParser.END_TAG:
-                    if ("display-name".equals(tag) && currentChannelId != null && currentText != null) {
-                        String name = currentText.trim();
+                    if ("display-name".equals(tag) && currentChannelId != null && currentText.length() > 0) {
+                        String name = currentText.toString().trim();
                         displayNameToIdMap.put(name.toLowerCase(), currentChannelId);
                         
                         String normName = normalizeChannelName(name);
@@ -233,8 +276,8 @@ public class EpgParser {
                             matchSingleChannel(currentChannelId, displayNameToIdMap, normalizedNameToIdMap, epgIdToChannelMap, channels);
                         }
                         currentChannelId = null;
-                    } else if ("title".equals(tag) && currentProgram != null && currentText != null) {
-                        String title = currentText.trim();
+                    } else if ("title".equals(tag) && currentProgram != null && currentText.length() > 0) {
+                        String title = currentText.toString().trim();
                         currentProgram.programName = title;
                         currentProgram.timeLabel = currentProgram.timeLabel + " " + title;
                     } else if ("programme".equals(tag)) {
@@ -270,10 +313,6 @@ public class EpgParser {
                                            Map<String, Channel> epgIdToChannelMap,
                                            List<Channel> channels) {
         for (Channel c : channels) {
-            if (c.getEpgId() != null) {
-                continue;
-            }
-
             String nameLower = c.getName().toLowerCase();
             String nameNorm = normalizeChannelName(c.getName());
 
@@ -285,7 +324,7 @@ public class EpgParser {
             if (epgChannelId.equals(matchedId)) {
                 c.setEpgId(epgChannelId);
                 epgIdToChannelMap.put(epgChannelId, c);
-                break;
+                // 取消 break，保证具有重复或收藏关系的多实例可以同时被绑定
             }
         }
     }

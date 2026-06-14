@@ -48,7 +48,7 @@ public class MainActivity extends AppCompatActivity {
     private static final String PREFS_NAME = "LiveTVPrefs";
     private static final String KEY_LAST_URL = "last_played_url";
     private static final String M3U_URL = "https://my.3223516.xyz/tv.m3u";
-    private static final String EPG_URL = "https://e.erw.cc/all.xml.gz";
+    private static final String EPG_URL = "http://e.erw.cc/all.xml.gz";
     public static final String CATEGORY_FAVORITE = "我的收藏";
 
     // 自动隐藏及延时执行常量
@@ -1508,7 +1508,10 @@ public class MainActivity extends AppCompatActivity {
                 TextView currentProgTv = convertView.findViewById(R.id.text_current_program);
                 CatchupProgram curProg = c.getCurrentProgram();
                 if (curProg != null) {
-                    currentProgTv.setText("当前: " + curProg.programName);
+                    SimpleDateFormat sdfTime = new SimpleDateFormat("HH:mm", Locale.getDefault());
+                    String startStr = sdfTime.format(new Date(curProg.beginTimeMs));
+                    String endStr = sdfTime.format(new Date(curProg.endTimeMs));
+                    currentProgTv.setText("当前: " + startStr + " - " + endStr + " " + curProg.programName);
                     currentProgTv.setVisibility(View.VISIBLE);
                 } else {
                     currentProgTv.setVisibility(View.GONE);
