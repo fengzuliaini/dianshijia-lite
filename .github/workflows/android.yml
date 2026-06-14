@@ -65,7 +65,7 @@ jobs:
         echo "  \"versionCode\": $VERSION_CODE," >> update.json
         echo "  \"versionName\": \"$VERSION_NAME\"," >> update.json
         echo "  \"apkUrl\": \"https://my.3223516.xyz/app-release.apk\"," >> update.json
-        echo "  \"updateMessage\": \"GitHub Actions 自动打包发布版本 $VERSION_NAME ($VERSION_CODE)\\\n更新日志：代码推送自动触发构建部署。\"" >> update.json
+        echo "  \"updateMessage\": \"GitHub Actions 自动打包发布版本 $VERSION_NAME ($VERSION_CODE)\\\n更新日志：1.新增我的收藏功能；2.整合EPG电子节目单并按节目切分回看；3.配置安全固定签名机制。\\\n提示：由于本次更新启用了安全固签，若覆盖安装时提示[应用未安装]，请先手动卸载电视上的旧版，重新安装此版本即可。以后更新即可直接无缝自动覆盖升级！\"" >> update.json
         echo "}" >> update.json
         cp app/build/outputs/apk/debug/app-debug.apk app-release.apk
 

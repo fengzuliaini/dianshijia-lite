@@ -6,6 +6,21 @@ android {
     namespace 'com.dianshijia.lite'
     compileSdk 33
 
+    signingConfigs {
+        release {
+            storeFile file("release.jks")
+            storePassword "123456"
+            keyAlias "dianshijia"
+            keyPassword "123456"
+        }
+        debug {
+            storeFile file("release.jks")
+            storePassword "123456"
+            keyAlias "dianshijia"
+            keyPassword "123456"
+        }
+    }
+
     defaultConfig {
         applicationId "com.dianshijia.lite"
         minSdk 16
@@ -20,10 +35,12 @@ android {
     buildTypes {
         release {
             minifyEnabled true
+            signingConfig signingConfigs.release
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
         debug {
             minifyEnabled true
+            signingConfig signingConfigs.debug
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
