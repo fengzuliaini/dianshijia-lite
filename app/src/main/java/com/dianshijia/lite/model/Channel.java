@@ -115,7 +115,7 @@ public class Channel {
      * 获取当前正在播放的真实 EPG 节目（过滤空占位符）
      */
     public CatchupProgram getCurrentProgram() {
-        long now = System.currentTimeMillis();
+        long now = com.dianshijia.lite.util.OkHttpUtils.currentTimeMillis();
         for (CatchupProgram prog : epgPrograms) {
             if (prog.beginTimeMs <= now && now < prog.endTimeMs) {
                 if (prog.programName != null && !prog.programName.isEmpty()) {
@@ -130,7 +130,7 @@ public class Channel {
      * 获取下一个待播放的真实 EPG 节目
      */
     public CatchupProgram getNextProgram() {
-        long now = System.currentTimeMillis();
+        long now = com.dianshijia.lite.util.OkHttpUtils.currentTimeMillis();
         for (int i = 0; i < epgPrograms.size(); i++) {
             CatchupProgram prog = epgPrograms.get(i);
             if (prog.beginTimeMs <= now && now < prog.endTimeMs) {

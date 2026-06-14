@@ -108,6 +108,13 @@ public class MainActivity extends AppCompatActivity {
 
     // 状态控制记录
     private boolean isSidebarShowing = false;
+    private int menuClickCount = 0;
+    private final Runnable resetMenuClickRunnable = new Runnable() {
+        @Override
+        public void run() {
+            menuClickCount = 0;
+        }
+    };
     private boolean isCatchupMode = false; // 是否处于回看播放状态
     private boolean isUserSeeking = false;  // 用户是否正在手动拖动进度条
     private long lastBackPressTime = 0;
@@ -987,7 +994,7 @@ public class MainActivity extends AppCompatActivity {
         // 2. 优先使用真实的 EPG 节目单
         List<CatchupProgram> epgProgs = channel.getEpgPrograms();
         if (epgProgs != null && !epgProgs.isEmpty()) {
-            long now = System.currentTimeMillis();
+            long now = com.dianshijia.lite.util.OkHttpUtils.currentTimeMillis();
             // 倒序加入列表，使最新播完的节目排在最前面
             for (int i = epgProgs.size() - 1; i >= 0; i--) {
                 CatchupProgram prog = epgProgs.get(i);
@@ -998,7 +1005,7 @@ public class MainActivity extends AppCompatActivity {
             }
         } else {
             // 无 EPG 数据时，采用 24 小时虚拟节目单兜底
-            long now = System.currentTimeMillis();
+            long now = com.dianshijia.lite.util.OkHttpUtils.currentTimeMillis();
             SimpleDateFormat sdfLabel = new SimpleDateFormat("HH:mm", Locale.getDefault());
             SimpleDateFormat sdfParam = new SimpleDateFormat("yyyyMMddHHmmss", Locale.getDefault());
             SimpleDateFormat sdfDate = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
@@ -1247,6 +1254,14 @@ public class MainActivity extends AppCompatActivity {
         // 4. 直播模式或菜单状态下的遥控键接管
         switch (keyCode) {
             case KeyEvent.KEYCODE_MENU:
+                menuClickCount++;
+                tvHandler.removeCallbacks(resetMenuClickRunnable);
+                if (menuClickCount >= 5) {
+                    menuClickCount = 0;
+                    showEpgDebugDialog();
+                    return true;
+                }
+                tvHandler.postDelayed(resetMenuClickRunnable, 2000);
                 toggleFavoriteForCurrentContext();
                 return true;
             case KeyEvent.KEYCODE_DPAD_UP:
@@ -2116,5 +2131,57 @@ public class MainActivity extends AppCompatActivity {
             Log.e(TAG, "Failed to start install activity", e);
             Toast.makeText(this, "启动安装失败，请手动在文件管理器中安装", Toast.LENGTH_LONG).show();
         }
+    }
+
+    private void showEpgDebugDialog() {
+        StringBuilder sb = new StringBuilder();
+        long localTime = System.currentTimeMillis();
+        long realTime = com.dianshijia.lite.util.OkHttpUtils.currentTimeMillis();
+        long offset = com.dianshijia.lite.util.OkHttpUtils.getTimeOffset();
+
+        java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault());
+
+        sb.append("--- 时间诊断 ---\n");
+        sb.append("设备系统时间: ").append(sdf.format(new java.util.Date(localTime))).append("\n");
+        sb.append("网络对齐时间: ").append(sdf.format(new java.util.Date(realTime))).append("\n");
+        sb.append("对齐偏移量: ").append(offset).append(" ms\n\n");
+
+        sb.append("--- EPG 缓存状态 ---\n");
+        File cacheFile = new File(getCacheDir(), "epg_all.xml.gz");
+        if (cacheFile.exists()) {
+            sb.append("EPG 缓存文件: 存在 (大小: ").append(cacheFile.length()).append(" 字节)\n");
+            sb.append("修改时间: ").append(sdf.format(new java.util.Date(cacheFile.lastModified()))).append("\n");
+        } else {
+            sb.append("EPG 缓存文件: 不存在\n");
+        }
+
+        sb.append("\n--- 频道匹配率 ---\n");
+        int total = allChannels.size();
+        int matched = 0;
+        int progsCount = 0;
+        for (Channel c : allChannels) {
+            if (c.getEpgId() != null) {
+                matched++;
+                progsCount += c.getEpgPrograms().size();
+            }
+        }
+        sb.append("总频道数: ").append(total).append("\n");
+        sb.append("成功绑定 EPG 频道数: ").append(matched).append(" (成功率: ").append(matched).append("/").append(total).append(")\n");
+        sb.append("EPG 节目数据总条数: ").append(progsCount).append("\n\n");
+
+        sb.append("--- 前5个频道匹配状态 ---\n");
+        int count = 0;
+        for (Channel c : allChannels) {
+            if (count >= 5) break;
+            sb.append(c.getName()).append(" -> epgId: ").append(c.getEpgId())
+              .append(" (节目数: ").append(c.getEpgPrograms().size()).append(")\n");
+            count++;
+        }
+
+        new android.app.AlertDialog.Builder(this)
+            .setTitle("EPG 电子节目单调试面板")
+            .setMessage(sb.toString())
+            .setPositiveButton("确定", null)
+            .show();
     }
 }

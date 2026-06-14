@@ -178,7 +178,7 @@ public class EpgParser {
         StringBuilder currentText = new StringBuilder();
         CatchupProgram currentProgram = null;
 
-        long now = System.currentTimeMillis();
+        long now = com.dianshijia.lite.util.OkHttpUtils.currentTimeMillis();
         SimpleDateFormat xmlDateFormat = new SimpleDateFormat("yyyyMMddHHmmss", Locale.getDefault());
 
         SimpleDateFormat sdfTime = new SimpleDateFormat("HH:mm", Locale.getDefault());
