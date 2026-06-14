@@ -46,3 +46,28 @@ jobs:
       with:
         name: DianshijiaLite-Debug-APK
         path: app/build/outputs/apk/debug/app-debug.apk
+
+    - name: Generate update.json
+      run: |
+        VERSION_CODE=$(grep -E 'versionCode\s+' app/build.gradle | awk '{print $2}')
+        VERSION_NAME=$(grep -E 'versionName\s+' app/build.gradle | awk '{print $2}' | tr -d '"')
+        if [ -z "$VERSION_CODE" ]; then VERSION_CODE="1"; fi
+        if [ -z "$VERSION_NAME" ]; then VERSION_NAME="1.0.0"; fi
+        echo "{" > update.json
+        echo "  \"versionCode\": $VERSION_CODE," >> update.json
+        echo "  \"versionName\": \"$VERSION_NAME\"," >> update.json
+        echo "  \"apkUrl\": \"https://my.3223516.xyz/app-release.apk\"," >> update.json
+        echo "  \"updateMessage\": \"GitHub Actions 自动打包发布版本 $VERSION_NAME ($VERSION_CODE)\\\n更新日志：代码推送自动触发构建部署。\"" >> update.json
+        echo "}" >> update.json
+        cp app/build/outputs/apk/debug/app-debug.apk app-release.apk
+
+    - name: Deploy to VPS
+      uses: appleboy/scp-action@master
+      with:
+        host: ${{ secrets.VPS_HOST }}
+        username: ${{ secrets.VPS_USERNAME }}
+        password: ${{ secrets.VPS_PASSWORD }}
+        port: ${{ secrets.VPS_PORT }}
+        source: "app-release.apk,update.json"
+        target: ${{ secrets.VPS_TARGET_DIR }}
+        strip_components: 0
