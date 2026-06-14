@@ -47,6 +47,14 @@ jobs:
         name: DianshijiaLite-Debug-APK
         path: app/build/outputs/apk/debug/app-debug.apk
 
+    - name: Diagnose Secrets
+      run: |
+        if [ -z "${{ secrets.VPS_HOST }}" ]; then echo "VPS_HOST is EMPTY"; else echo "VPS_HOST is CONFIGURED"; fi
+        if [ -z "${{ secrets.VPS_USERNAME }}" ]; then echo "VPS_USERNAME is EMPTY"; else echo "VPS_USERNAME is CONFIGURED"; fi
+        if [ -z "${{ secrets.VPS_PASSWORD }}" ]; then echo "VPS_PASSWORD is EMPTY"; else echo "VPS_PASSWORD is CONFIGURED"; fi
+        if [ -z "${{ secrets.VPS_PORT }}" ]; then echo "VPS_PORT is EMPTY"; else echo "VPS_PORT is CONFIGURED"; fi
+        if [ -z "${{ secrets.VPS_TARGET_DIR }}" ]; then echo "VPS_TARGET_DIR is EMPTY"; else echo "VPS_TARGET_DIR is CONFIGURED"; fi
+
     - name: Generate update.json
       run: |
         VERSION_CODE=$(grep -E 'versionCode\s+' app/build.gradle | awk '{print $2}')
