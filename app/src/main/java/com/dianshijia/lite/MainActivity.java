@@ -49,6 +49,7 @@ public class MainActivity extends AppCompatActivity {
     private static final String KEY_LAST_URL = "last_played_url";
     private static final String M3U_URL = "https://my.3223516.xyz/tv.m3u";
     private static final String EPG_URL = "https://e.erw.cc/all.xml.gz";
+    public static final String CATEGORY_FAVORITE = "我的收藏";
 
     // 自动隐藏及延时执行常量
     private static final int MSG_HIDE_SIDEBAR = 1;
@@ -353,6 +354,20 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        // 频道列表长按监听：支持遥控器长按 OK 键收藏或取消收藏
+        listChannels.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {
+            @Override
+            public boolean onItemLongClick(AdapterView<?> parent, View view, int position, long id) {
+                List<Channel> channels = groupedChannels.get(currentCategory);
+                if (channels != null && position >= 0 && position < channels.size()) {
+                    Channel channel = channels.get(position);
+                    toggleFavorite(channel);
+                    return true;
+                }
+                return false;
+            }
+        });
+
         // 回看列表项点选处理（确定加载历史回放）
         listCatchup.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
@@ -466,10 +481,24 @@ public class MainActivity extends AppCompatActivity {
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
-                        groupedChannels.clear();
-                        groupedChannels.putAll(parsedGrouped);
                         allChannels.clear();
                         allChannels.addAll(parsedAll);
+
+                        // 载入收藏夹数据
+                        loadFavorites();
+
+                        // 构建“我的收藏”列表
+                        List<Channel> favoriteList = new ArrayList<>();
+                        for (Channel ch : allChannels) {
+                            if (ch.isFavorite()) {
+                                favoriteList.add(ch);
+                            }
+                        }
+
+                        groupedChannels.clear();
+                        // 强制将“我的收藏”分类加入，并排在 LinkedHashMap 最顶部
+                        groupedChannels.put(CATEGORY_FAVORITE, favoriteList);
+                        groupedChannels.putAll(parsedGrouped);
 
                         categories.clear();
                         categories.addAll(groupedChannels.keySet());
@@ -502,6 +531,87 @@ public class MainActivity extends AppCompatActivity {
                 });
             }
         });
+    }
+
+    /**
+     * 载入收藏夹数据，更新频道的收藏状态
+     */
+    private void loadFavorites() {
+        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        java.util.Set<String> favs = prefs.getStringSet("favorite_channels", new java.util.HashSet<String>());
+        for (Channel ch : allChannels) {
+            if (favs.contains(ch.getName())) {
+                ch.setFavorite(true);
+            } else {
+                ch.setFavorite(false);
+            }
+        }
+    }
+
+    /**
+     * 持久化收藏夹数据
+     */
+    private void saveFavorites() {
+        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        java.util.Set<String> favs = new java.util.HashSet<>();
+        for (Channel ch : allChannels) {
+            if (ch.isFavorite()) {
+                favs.add(ch.getName());
+            }
+        }
+        prefs.edit().putStringSet("favorite_channels", favs).apply();
+    }
+
+    /**
+     * 切换频道的收藏状态，并刷新界面和保存数据
+     */
+    private void toggleFavorite(Channel channel) {
+        if (channel == null) return;
+        boolean fav = !channel.isFavorite();
+        channel.setFavorite(fav);
+        
+        saveFavorites();
+        
+        List<Channel> favList = groupedChannels.get(CATEGORY_FAVORITE);
+        if (favList == null) {
+            favList = new ArrayList<>();
+            groupedChannels.put(CATEGORY_FAVORITE, favList);
+        }
+        if (fav) {
+            if (!favList.contains(channel)) {
+                favList.add(channel);
+            }
+            Toast.makeText(this, "已加入我的收藏", Toast.LENGTH_SHORT).show();
+        } else {
+            favList.remove(channel);
+            Toast.makeText(this, "已取消收藏", Toast.LENGTH_SHORT).show();
+        }
+        
+        channelAdapter.notifyDataSetChanged();
+    }
+
+    /**
+     * 针对当前焦点所在的上下文进行收藏操作
+     */
+    private void toggleFavoriteForCurrentContext() {
+        if (isSidebarShowing) {
+            if (listChannels.hasFocus()) {
+                int position = listChannels.getSelectedItemPosition();
+                List<Channel> channels = groupedChannels.get(currentCategory);
+                if (channels != null && position >= 0 && position < channels.size()) {
+                    Channel channel = channels.get(position);
+                    toggleFavorite(channel);
+                }
+            } else if (listCategories.hasFocus()) {
+                Toast.makeText(this, "请在频道列表上按菜单键进行收藏", Toast.LENGTH_SHORT).show();
+            } else if (listCatchup.hasFocus()) {
+                Toast.makeText(this, "请在频道列表上按菜单键进行收藏", Toast.LENGTH_SHORT).show();
+            }
+        } else {
+            if (currentChannel != null) {
+                toggleFavorite(currentChannel);
+            }
+        }
     }
 
     private void resumeLastWatched() {
@@ -554,17 +664,15 @@ public class MainActivity extends AppCompatActivity {
         currentCategory = category;
         channelAdapter.notifyDataSetChanged();
         
-        if (currentChannel != null && currentChannel.getGroup().equals(category)) {
-            List<Channel> channels = groupedChannels.get(category);
-            if (channels != null) {
-                int index = channels.indexOf(currentChannel);
-                if (index != -1) {
-                    listChannels.setSelection(index);
-                }
+        List<Channel> channels = groupedChannels.get(category);
+        if (channels != null && currentChannel != null) {
+            int index = channels.indexOf(currentChannel);
+            if (index != -1) {
+                listChannels.setSelection(index);
+                return;
             }
-        } else {
-            listChannels.setSelection(0);
         }
+        listChannels.setSelection(0);
     }
 
     /**
@@ -581,7 +689,12 @@ public class MainActivity extends AppCompatActivity {
             retryPlayRunnable = null;
         }
         currentChannel = channel;
-        currentCategory = channel.getGroup();
+        // 如果当前正好在“我的收藏”分类，且当前频道是已被收藏的，则保留在“我的收藏”分类下，不强行改为原始组
+        if (CATEGORY_FAVORITE.equals(currentCategory) && channel.isFavorite()) {
+            // 保持 currentCategory
+        } else {
+            currentCategory = channel.getGroup();
+        }
 
         String url = channel.getPlayUrl();
         if (url == null) {
@@ -1098,6 +1211,9 @@ public class MainActivity extends AppCompatActivity {
 
         // 4. 直播模式或菜单状态下的遥控键接管
         switch (keyCode) {
+            case KeyEvent.KEYCODE_MENU:
+                toggleFavoriteForCurrentContext();
+                return true;
             case KeyEvent.KEYCODE_DPAD_UP:
                 if (!isSidebarShowing) {
                     switchChannel(false); // 直播向上换台
@@ -1348,7 +1464,11 @@ public class MainActivity extends AppCompatActivity {
                 TextView nameTv = convertView.findViewById(R.id.text_channel_name);
 
                 numTv.setText(c.getNumber());
-                nameTv.setText(c.getName());
+                if (c.isFavorite()) {
+                    nameTv.setText(c.getName() + " ★");
+                } else {
+                    nameTv.setText(c.getName());
+                }
 
                 convertView.setSelected(c == currentChannel);
             }

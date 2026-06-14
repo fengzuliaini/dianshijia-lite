@@ -100,4 +100,14 @@ public class Channel {
     public List<CatchupProgram> getEpgPrograms() {
         return epgPrograms;
     }
+
+    private boolean isFavorite = false; // 频道是否已被收藏
+
+    public boolean isFavorite() {
+        return isFavorite;
+    }
+
+    public void setFavorite(boolean favorite) {
+        this.isFavorite = favorite;
+    }
 }
