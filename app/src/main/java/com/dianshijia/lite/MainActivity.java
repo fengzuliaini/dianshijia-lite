@@ -70,6 +70,8 @@ public class MainActivity extends AppCompatActivity {
     private View layoutInfoOverlay;
     private TextView textOverlayNum;
     private TextView textOverlayName;
+    private TextView textOverlayCurrentProg;
+    private TextView textOverlayNextProg;
     
     private View layoutLoading;
     private TextView textLoadingStatus;
@@ -248,6 +250,8 @@ public class MainActivity extends AppCompatActivity {
         layoutInfoOverlay = findViewById(R.id.layout_info_overlay);
         textOverlayNum = findViewById(R.id.text_overlay_num);
         textOverlayName = findViewById(R.id.text_overlay_name);
+        textOverlayCurrentProg = findViewById(R.id.text_overlay_current_program);
+        textOverlayNextProg = findViewById(R.id.text_overlay_next_program);
         
         layoutLoading = findViewById(R.id.layout_loading);
         textLoadingStatus = findViewById(R.id.text_loading_status);
@@ -510,10 +514,11 @@ public class MainActivity extends AppCompatActivity {
                         EpgParser.loadEpg(MainActivity.this, EPG_URL, allChannels, new Runnable() {
                             @Override
                             public void run() {
-                                Log.i(TAG, "EPG XMLTV 节目单已成功加载，静默刷新当前频道回看单");
+                                Log.i(TAG, "EPG XMLTV 节目单已成功加载，静默刷新当前频道回看单与列表清单");
                                 if (currentChannel != null) {
                                     updateCatchupList(currentChannel);
                                 }
+                                channelAdapter.notifyDataSetChanged();
                             }
                         });
                     }
@@ -982,9 +987,14 @@ public class MainActivity extends AppCompatActivity {
         // 2. 优先使用真实的 EPG 节目单
         List<CatchupProgram> epgProgs = channel.getEpgPrograms();
         if (epgProgs != null && !epgProgs.isEmpty()) {
+            long now = System.currentTimeMillis();
             // 倒序加入列表，使最新播完的节目排在最前面
             for (int i = epgProgs.size() - 1; i >= 0; i--) {
-                catchupList.add(epgProgs.get(i));
+                CatchupProgram prog = epgProgs.get(i);
+                // 仅限当前已开始播放的节目提供回看
+                if (prog.beginTimeMs <= now) {
+                    catchupList.add(prog);
+                }
             }
         } else {
             // 无 EPG 数据时，采用 24 小时虚拟节目单兜底
@@ -1024,6 +1034,8 @@ public class MainActivity extends AppCompatActivity {
                 p.timeLabel = dayLabel + " " + sdfLabel.format(new Date(start)) + " - " + sdfLabel.format(new Date(end));
                 p.beginTime = sdfParam.format(new Date(start));
                 p.endTime = sdfParam.format(new Date(end));
+                p.beginTimeMs = start;
+                p.endTimeMs = end;
                 p.isLive = false;
                 catchupList.add(p);
             }
@@ -1088,6 +1100,29 @@ public class MainActivity extends AppCompatActivity {
         if (currentChannel == null) return;
         
         textOverlayNum.setText(currentChannel.getNumber());
+        
+        // 更新并展示当前节目和下一个节目信息
+        CatchupProgram curProg = currentChannel.getCurrentProgram();
+        CatchupProgram nextProg = currentChannel.getNextProgram();
+        
+        if (curProg != null) {
+            SimpleDateFormat sdfTime = new SimpleDateFormat("HH:mm", Locale.getDefault());
+            String endStr = sdfTime.format(new Date(curProg.endTimeMs));
+            textOverlayCurrentProg.setText("当前节目: " + curProg.programName + " (将于 " + endStr + " 结束)");
+            textOverlayCurrentProg.setVisibility(View.VISIBLE);
+        } else {
+            textOverlayCurrentProg.setVisibility(View.GONE);
+        }
+        
+        if (nextProg != null) {
+            SimpleDateFormat sdfTime = new SimpleDateFormat("HH:mm", Locale.getDefault());
+            String startStr = sdfTime.format(new Date(nextProg.beginTimeMs));
+            textOverlayNextProg.setText("下一节目: " + nextProg.programName + " (" + startStr + " 开始)");
+            textOverlayNextProg.setVisibility(View.VISIBLE);
+        } else {
+            textOverlayNextProg.setVisibility(View.GONE);
+        }
+
         layoutInfoOverlay.setVisibility(View.VISIBLE);
 
         tvHandler.removeMessages(MSG_HIDE_OVERLAY);
@@ -1468,6 +1503,15 @@ public class MainActivity extends AppCompatActivity {
                     nameTv.setText(c.getName() + " ★");
                 } else {
                     nameTv.setText(c.getName());
+                }
+
+                TextView currentProgTv = convertView.findViewById(R.id.text_current_program);
+                CatchupProgram curProg = c.getCurrentProgram();
+                if (curProg != null) {
+                    currentProgTv.setText("当前: " + curProg.programName);
+                    currentProgTv.setVisibility(View.VISIBLE);
+                } else {
+                    currentProgTv.setVisibility(View.GONE);
                 }
 
                 convertView.setSelected(c == currentChannel);

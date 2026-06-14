@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="60dp"
+    android:layout_height="70dp"
     android:orientation="horizontal"
     android:gravity="center_vertical"
     android:paddingLeft="20dp"
@@ -18,14 +18,34 @@
         android:textColor="@color/accent_gold"
         android:layout_marginRight="15dp" />
 
-    <!-- 频道名称：白色 -->
-    <TextView
-        android:id="@+id/text_channel_name"
+    <!-- 垂直放置频道名和当前节目名 -->
+    <LinearLayout
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"
-        android:textSize="18sp"
-        android:textColor="@color/white"
-        android:singleLine="true"
-        android:ellipsize="end" />
+        android:orientation="vertical"
+        android:gravity="center_vertical">
+
+        <!-- 频道名称：白色 -->
+        <TextView
+            android:id="@+id/text_channel_name"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="17sp"
+            android:textColor="@color/white"
+            android:singleLine="true"
+            android:ellipsize="end" />
+
+        <!-- 当前正在播放的节目：淡半透明白色 -->
+        <TextView
+            android:id="@+id/text_current_program"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="13sp"
+            android:textColor="#B0FFFFFF"
+            android:singleLine="true"
+            android:ellipsize="end"
+            android:layout_marginTop="2dp"
+            android:visibility="gone" />
+    </LinearLayout>
 </LinearLayout>

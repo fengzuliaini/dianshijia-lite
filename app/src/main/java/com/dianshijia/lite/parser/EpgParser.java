@@ -163,19 +163,18 @@ public class EpgParser {
                                     Date startDate = xmlDateFormat.parse(start14);
                                     Date endDate = xmlDateFormat.parse(stop14);
                                     long startTimeMs = startDate.getTime();
+                                    long endTimeMs = endDate.getTime();
 
-                                    // 只收集当前时间及之前的历史节目（即回看只针对播完或正在播的历史节目）
-                                    if (startTimeMs <= now) {
-                                        currentProgram = new CatchupProgram();
-                                        currentProgram.beginTime = start14;
-                                        currentProgram.endTime = stop14;
-                                        currentProgram.isLive = false;
+                                    // 收集全天节目（不再只过滤历史节目，以提供完整的当前/未来节目数据）
+                                    currentProgram = new CatchupProgram();
+                                    currentProgram.beginTime = start14;
+                                    currentProgram.endTime = stop14;
+                                    currentProgram.beginTimeMs = startTimeMs;
+                                    currentProgram.endTimeMs = endTimeMs;
+                                    currentProgram.isLive = false;
 
-                                        String dayLabel = getDayLabel(startDate, now, sdfDay);
-                                        currentProgram.timeLabel = dayLabel + " " + sdfTime.format(startDate) + " - " + sdfTime.format(endDate);
-                                    } else {
-                                        currentProgram = null;
-                                    }
+                                    String dayLabel = getDayLabel(startDate, now, sdfDay);
+                                    currentProgram.timeLabel = dayLabel + " " + sdfTime.format(startDate) + " - " + sdfTime.format(endDate);
                                 } catch (Exception e) {
                                     currentProgram = null;
                                 }
@@ -202,8 +201,10 @@ public class EpgParser {
                     } else if ("channel".equals(tag)) {
                         currentChannelId = null;
                     } else if ("title".equals(tag) && currentProgram != null && currentText != null) {
+                        String title = currentText.trim();
+                        currentProgram.programName = title;
                         // 将节目名称拼接到 timeLabel 中，例如 "今天 19:00 - 19:30 新闻联播"
-                        currentProgram.timeLabel = currentProgram.timeLabel + " " + currentText.trim();
+                        currentProgram.timeLabel = currentProgram.timeLabel + " " + title;
                     } else if ("programme".equals(tag)) {
                         if (currentProgram != null) {
                             String channelId = parser.getAttributeValue(null, "channel");
@@ -241,6 +242,18 @@ public class EpgParser {
             if (matchedId != null) {
                 c.setEpgId(matchedId);
                 epgIdToChannelMap.put(matchedId, c);
+            }
+        }
+        
+        // 对每个频道的节目单进行按时间戳升序排序，防 XMLTV 乱序
+        for (Channel c : channels) {
+            if (!c.getEpgPrograms().isEmpty()) {
+                java.util.Collections.sort(c.getEpgPrograms(), new java.util.Comparator<CatchupProgram>() {
+                    @Override
+                    public int compare(CatchupProgram p1, CatchupProgram p2) {
+                        return Long.compare(p1.beginTimeMs, p2.beginTimeMs);
+                    }
+                });
             }
         }
         Log.i(TAG, "EPG 匹配完成，成功匹配 " + epgIdToChannelMap.size() + "/" + channels.size() + " 个频道");

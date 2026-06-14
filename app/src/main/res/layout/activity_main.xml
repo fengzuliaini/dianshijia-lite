@@ -76,18 +76,46 @@
             android:id="@+id/text_overlay_num"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textSize="26sp"
+            android:textSize="32sp"
             android:textColor="@color/accent_gold"
             android:textStyle="bold"
-            android:layout_marginRight="10dp" />
+            android:layout_marginRight="15dp" />
 
-        <!-- 提示框中的频道名与线路 -->
-        <TextView
-            android:id="@+id/text_overlay_name"
+        <!-- 垂直放置频道信息和节目单信息 -->
+        <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textSize="22sp"
-            android:textColor="@color/white" />
+            android:orientation="vertical">
+
+            <!-- 提示框中的频道名与线路 -->
+            <TextView
+                android:id="@+id/text_overlay_name"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="20sp"
+                android:textColor="@color/white"
+                android:textStyle="bold" />
+
+            <!-- 当前节目及结束时间 -->
+            <TextView
+                android:id="@+id/text_overlay_current_program"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="15sp"
+                android:textColor="#E0FFFFFF"
+                android:layout_marginTop="4dp"
+                android:visibility="gone" />
+
+            <!-- 下一个节目名 -->
+            <TextView
+                android:id="@+id/text_overlay_next_program"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="15sp"
+                android:textColor="#A0FFFFFF"
+                android:layout_marginTop="2dp"
+                android:visibility="gone" />
+        </LinearLayout>
     </LinearLayout>
 
     <!-- 屏幕中央视频缓冲加载中浮层 -->

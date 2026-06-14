@@ -110,4 +110,39 @@ public class Channel {
     public void setFavorite(boolean favorite) {
         this.isFavorite = favorite;
     }
+
+    /**
+     * 获取当前正在播放的真实 EPG 节目（过滤空占位符）
+     */
+    public CatchupProgram getCurrentProgram() {
+        long now = System.currentTimeMillis();
+        for (CatchupProgram prog : epgPrograms) {
+            if (prog.beginTimeMs <= now && now < prog.endTimeMs) {
+                if (prog.programName != null && !prog.programName.isEmpty()) {
+                    return prog;
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 获取下一个待播放的真实 EPG 节目
+     */
+    public CatchupProgram getNextProgram() {
+        long now = System.currentTimeMillis();
+        for (int i = 0; i < epgPrograms.size(); i++) {
+            CatchupProgram prog = epgPrograms.get(i);
+            if (prog.beginTimeMs <= now && now < prog.endTimeMs) {
+                if (i + 1 < epgPrograms.size()) {
+                    CatchupProgram next = epgPrograms.get(i + 1);
+                    if (next.programName != null && !next.programName.isEmpty()) {
+                        return next;
+                    }
+                }
+                break;
+            }
+        }
+        return null;
+    }
 }

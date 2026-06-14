@@ -8,4 +8,7 @@ public class CatchupProgram {
     public String beginTime;    // playseek 开始，格式为 "yyyyMMddHHmmss"
     public String endTime;      // playseek 结束，格式为 "yyyyMMddHHmmss"
     public boolean isLive;      // 是否是“返回实时直播”的占位项
+    public long beginTimeMs;    // 开始时间戳 (毫秒)
+    public long endTimeMs;      // 结束时间戳 (毫秒)
+    public String programName;  // 纯节目名称，例如："新闻联播"
 }
