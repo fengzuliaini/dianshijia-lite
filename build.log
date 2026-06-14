@@ -53,60 +53,41 @@ This migration can be done automatically using the AGP Upgrade Assistant, please
 > Task :app:checkDebugDuplicateClasses
 > Task :app:extractProguardFiles
 > Task :app:processDebugJavaRes NO-SOURCE
-> Task :app:processDebugManifestForPackage
-> Task :app:mergeDebugJavaResource
 > Task :app:mergeDebugJniLibFolders
 > Task :app:mergeDebugNativeLibs
-> Task :app:processDebugResources
+> Task :app:mergeDebugJavaResource
 > Task :app:validateSigningDebug
+> Task :app:writeDebugAppMetadata
+> Task :app:writeDebugSigningConfigVersions
+> Task :app:processDebugManifestForPackage
+
+> Task :app:stripDebugDebugSymbols
+Unable to strip the following libraries, packaging them as they are: libijkffmpeg.so, libijkplayer.so, libijksdl.so.
+
+> Task :app:processDebugResources
 
 > Task :app:compileDebugJavaWithJavac
-/home/runner/work/dianshijia-lite/dianshijia-lite/app/src/main/java/com/dianshijia/lite/MainActivity.java:117: error: cannot find symbol
+/home/runner/work/dianshijia-lite/dianshijia-lite/app/src/main/java/com/dianshijia/lite/MainActivity.java:118: error: cannot find symbol
     private ProgressBar downloadProgressBar;
             ^
   symbol:   class ProgressBar
   location: class MainActivity
-/home/runner/work/dianshijia-lite/dianshijia-lite/app/src/main/java/com/dianshijia/lite/MainActivity.java:1931: error: cannot find symbol
+/home/runner/work/dianshijia-lite/dianshijia-lite/app/src/main/java/com/dianshijia/lite/MainActivity.java:1932: error: cannot find symbol
     private void installApk(File apkFile) {
                             ^
   symbol:   class File
   location: class MainActivity
-/home/runner/work/dianshijia-lite/dianshijia-lite/app/src/main/java/com/dianshijia/lite/MainActivity.java:1875: error: cannot find symbol
+/home/runner/work/dianshijia-lite/dianshijia-lite/app/src/main/java/com/dianshijia/lite/MainActivity.java:1876: error: cannot find symbol
                     final File apkFile = new File(getExternalCacheDir(), "update.apk");
                           ^
   symbol: class File
-/home/runner/work/dianshijia-lite/dianshijia-lite/app/src/main/java/com/dianshijia/lite/MainActivity.java:1875: error: cannot find symbol
+/home/runner/work/dianshijia-lite/dianshijia-lite/app/src/main/java/com/dianshijia/lite/MainActivity.java:1876: error: cannot find symbol
                     final File apkFile = new File(getExternalCacheDir(), "update.apk");
                                              ^
   symbol: class File
-/home/runner/work/dianshijia-lite/dianshijia-lite/app/src/main/java/com/dianshijia/lite/MainActivity.java:1933: error: cannot find symbol
-        Intent intent = new Intent(Intent.ACTION_VIEW);
-        ^
-  symbol:   class Intent
-  location: class MainActivity
-/home/runner/work/dianshijia-lite/dianshijia-lite/app/src/main/java/com/dianshijia/lite/MainActivity.java:1933: error: cannot find symbol
-        Intent intent = new Intent(Intent.ACTION_VIEW);
-                            ^
-  symbol:   class Intent
-  location: class MainActivity
-/home/runner/work/dianshijia-lite/dianshijia-lite/app/src/main/java/com/dianshijia/lite/MainActivity.java:1933: error: cannot find symbol
-        Intent intent = new Intent(Intent.ACTION_VIEW);
-                                   ^
-  symbol:   variable Intent
-  location: class MainActivity
-/home/runner/work/dianshijia-lite/dianshijia-lite/app/src/main/java/com/dianshijia/lite/MainActivity.java:1934: error: cannot find symbol
-        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                        ^
-  symbol:   variable Intent
-  location: class MainActivity
-/home/runner/work/dianshijia-lite/dianshijia-lite/app/src/main/java/com/dianshijia/lite/MainActivity.java:1937: error: cannot find symbol
-            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                            ^
-  symbol:   variable Intent
-  location: class MainActivity
 Note: /home/runner/work/dianshijia-lite/dianshijia-lite/app/src/main/java/com/dianshijia/lite/MainActivity.java uses or overrides a deprecated API.
 Note: Recompile with -Xlint:deprecation for details.
-9 errors
+4 errors
 
 > Task :app:compileDebugJavaWithJavac FAILED
 
@@ -318,5 +299,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 See https://docs.gradle.org/7.4/userguide/command_line_interface.html#sec:command_line_warnings
 
-BUILD FAILED in 47s
-22 actionable tasks: 22 executed
+BUILD FAILED in 46s
+25 actionable tasks: 25 executed
