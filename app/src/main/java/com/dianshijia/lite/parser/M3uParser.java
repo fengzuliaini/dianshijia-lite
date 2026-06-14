@@ -53,7 +53,7 @@ public class M3uParser {
     }
 
     public static void loadChannels(final Context context, final String m3uUrl, final OnParseListener listener) {
-        OkHttpClient client = new OkHttpClient();
+        OkHttpClient client = com.dianshijia.lite.util.OkHttpUtils.getOkHttpClient();
         Request request = new Request.Builder()
                 .url(m3uUrl)
                 .build();

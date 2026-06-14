@@ -8,6 +8,11 @@
     <!-- 监听开机启动完成的权限 -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
+    <!-- 自动更新 APK 安装权限 (兼容 Android 8.0 及以上版本) -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- 自动更新 APK 下载缓存权限 (兼容老旧 Android 系统) -->
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+
     <!-- 电视硬件特征声明：设置为 false，以确保应用能在不支持 leanback 或没有触摸屏的老旧机顶盒上安装 -->
     <uses-feature android:name="android.software.leanback" android:required="false" />
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
@@ -55,6 +60,17 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </receiver>
+
+        <!-- 注册 FileProvider 解决 Android 7.0+ 安装外部 APK 报错的限制 -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
 
     </application>
 

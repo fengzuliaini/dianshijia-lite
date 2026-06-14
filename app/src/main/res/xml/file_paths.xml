@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 适配 Android 7.0+ 安装 APK 时所需的 FileProvider 目录映射 -->
+    <!-- 对应 Context.getExternalCacheDir()，避免动态读写 SD 卡权限申请 -->
+    <external-cache-path name="external_cache" path="." />
+    <!-- 对应 Context.getCacheDir() 兜底 -->
+    <cache-path name="internal_cache" path="." />
+</paths>

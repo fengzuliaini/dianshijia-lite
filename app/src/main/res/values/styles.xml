@@ -8,4 +8,12 @@
         <!-- 保持屏幕常亮 -->
         <item name="android:keepScreenOn">true</item>
     </style>
+
+    <!-- 暗黑高亮风格的更新弹窗主题，与 TV 风格保持一致 -->
+    <style name="Theme.DianshijiaLite.Dialog" parent="Theme.AppCompat.Dialog.Alert">
+        <item name="android:windowBackground">@color/bg_sidebar</item>
+        <item name="android:textColorPrimary">@color/white</item>
+        <item name="android:textColorSecondary">@color/text_normal</item>
+        <item name="colorAccent">@color/bg_focus</item>
+    </style>
 </resources>

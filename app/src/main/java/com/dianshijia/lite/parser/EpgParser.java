@@ -39,7 +39,7 @@ public class EpgParser {
     private static final String CACHE_FILE_NAME = "epg_all.xml.gz";
     private static final long CACHE_EXPIRE_TIME = 12 * 60 * 60 * 1000; // 12小时缓存过期时间
 
-    private static final OkHttpClient okHttpClient = new OkHttpClient();
+    private static final OkHttpClient okHttpClient = com.dianshijia.lite.util.OkHttpUtils.getOkHttpClient();
 
     public static void loadEpg(final Context context, final String epgUrl, final List<Channel> channels, final Runnable onComplete) {
         new Thread(new Runnable() {

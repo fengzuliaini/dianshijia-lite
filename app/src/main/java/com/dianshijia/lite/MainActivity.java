@@ -43,7 +43,7 @@ public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
     private static final String PREFS_NAME = "LiveTVPrefs";
     private static final String KEY_LAST_URL = "last_played_url";
-    private static final String M3U_URL = "http://us.3223516.xyz:55000/tv.m3u";
+    private static final String M3U_URL = "https://my.3223516.xyz/tv.m3u";
     private static final String EPG_URL = "https://e.erw.cc/all.xml.gz";
 
     // 自动隐藏及延时执行常量
@@ -109,6 +109,13 @@ public class MainActivity extends AppCompatActivity {
     private long tempSeekPosition = -1; // 缓动 Seek 的临时进度值
     private Runnable autoSwitchLineRunnable = null; // 自动换源/换线任务
     private LocalProxyServer proxyServer;
+
+    private Runnable retryPlayRunnable = null; // 播放失败自动重试的任务
+
+    // 自动更新提示与进度控件
+    private androidx.appcompat.app.AlertDialog progressDialog;
+    private ProgressBar downloadProgressBar;
+    private TextView textDownloadPercent;
 
     // 真正执行 Seek 跳转的 Action (缓动 Seek)
     private final Runnable confirmSeekAction = new Runnable() {
@@ -184,6 +191,7 @@ public class MainActivity extends AppCompatActivity {
         initViews();
         setupPlayer();
         loadLiveChannels();
+        checkAppUpdate();
     }
 
     @Override
@@ -201,6 +209,8 @@ public class MainActivity extends AppCompatActivity {
 
     private void initViews() {
         playerView = findViewById(R.id.player_view);
+        playerView.setFocusable(false);
+        playerView.setFocusableInTouchMode(false);
         playerView.setSurfaceTextureListener(new TextureView.SurfaceTextureListener() {
             @Override
             public void onSurfaceTextureAvailable(android.graphics.SurfaceTexture surfaceTexture, int width, int height) {
@@ -562,6 +572,10 @@ public class MainActivity extends AppCompatActivity {
             tvHandler.removeCallbacks(autoSwitchLineRunnable);
             autoSwitchLineRunnable = null;
         }
+        if (retryPlayRunnable != null) {
+            tvHandler.removeCallbacks(retryPlayRunnable);
+            retryPlayRunnable = null;
+        }
         currentChannel = channel;
         currentCategory = channel.getGroup();
 
@@ -599,6 +613,10 @@ public class MainActivity extends AppCompatActivity {
         if (autoSwitchLineRunnable != null) {
             tvHandler.removeCallbacks(autoSwitchLineRunnable);
             autoSwitchLineRunnable = null;
+        }
+        if (retryPlayRunnable != null) {
+            tvHandler.removeCallbacks(retryPlayRunnable);
+            retryPlayRunnable = null;
         }
         isCatchupMode = true;
         currentCatchupProgram = program;
@@ -713,16 +731,21 @@ public class MainActivity extends AppCompatActivity {
                                 layoutLoading.setVisibility(View.VISIBLE);
                                 textLoadingStatus.setText(R.string.parse_failed);
 
-                                tvHandler.postDelayed(new Runnable() {
+                                if (retryPlayRunnable != null) {
+                                    tvHandler.removeCallbacks(retryPlayRunnable);
+                                }
+                                retryPlayRunnable = new Runnable() {
                                     @Override
                                     public void run() {
+                                        retryPlayRunnable = null;
                                         if (isCatchupMode && currentCatchupProgram != null) {
                                             playCatchup(currentChannel, currentCatchupProgram);
                                         } else if (currentChannel != null) {
                                             playChannel(currentChannel);
                                         }
                                     }
-                                }, 3000);
+                                };
+                                tvHandler.postDelayed(retryPlayRunnable, 3000);
                             }
                         }
                     });
@@ -904,12 +927,6 @@ public class MainActivity extends AppCompatActivity {
         // 打开侧边栏菜单时，默认隐藏回看列表，直到用户按右键拉出
         listCatchup.setVisibility(View.GONE);
 
-        // 彻底剥夺全屏播放器的焦点权，防止系统焦点抢占与滞留导致菜单首次打不开
-        if (playerView != null) {
-            playerView.setFocusable(false);
-            playerView.setFocusableInTouchMode(false);
-        }
-
         if (!categories.isEmpty()) {
             int catIndex = categories.indexOf(currentCategory);
             if (catIndex != -1) {
@@ -941,12 +958,6 @@ public class MainActivity extends AppCompatActivity {
         if (!isSidebarShowing) return;
         isSidebarShowing = false;
         layoutSidebar.setVisibility(View.GONE);
-
-        // 菜单隐藏后，重新归还播放器的焦点可触碰权，恢复全屏点击交互
-        if (playerView != null) {
-            playerView.setFocusable(true);
-            playerView.setFocusableInTouchMode(true);
-        }
 
         tvHandler.removeMessages(MSG_HIDE_SIDEBAR);
     }
@@ -1147,7 +1158,22 @@ public class MainActivity extends AppCompatActivity {
                 }
                 break;
             case KeyEvent.KEYCODE_BACK:
+                // 1. 如果数字换台输入框可见，按返回键先取消并隐藏它
+                if (layoutNumberInput.getVisibility() == View.VISIBLE) {
+                    tvHandler.removeMessages(MSG_TRIGGER_NUM_SWITCH);
+                    numberInputBuilder.setLength(0);
+                    layoutNumberInput.setVisibility(View.GONE);
+                    return true;
+                }
+                // 2. 如果侧边栏处于显示状态
                 if (isSidebarShowing) {
+                    // 若第三列（回看单）聚焦，按返回键仅关闭第三列并退回到第二列（频道列表）
+                    if (listCatchup.getVisibility() == View.VISIBLE && listCatchup.hasFocus()) {
+                        listCatchup.setVisibility(View.GONE);
+                        listChannels.requestFocus();
+                        return true;
+                    }
+                    // 否则隐藏整个侧边栏
                     hideSidebar();
                     return true;
                 } else if (layoutController.getVisibility() == View.VISIBLE) {
@@ -1719,6 +1745,205 @@ public class MainActivity extends AppCompatActivity {
                     clientSocket.close();
                 } catch (java.io.IOException ignored) {}
             }
+        }
+    }
+
+    // ==========================================
+    // 自动更新检测与执行逻辑
+    // ==========================================
+    private static class UpdateInfo {
+        int versionCode;
+        String versionName;
+        String apkUrl;
+        String updateMessage;
+    }
+
+    private void checkAppUpdate() {
+        String updateUrl = "https://my.3223516.xyz/update.json";
+        okhttp3.OkHttpClient client = com.dianshijia.lite.util.OkHttpUtils.getOkHttpClient();
+        okhttp3.Request request = new okhttp3.Request.Builder()
+                .url(updateUrl)
+                .build();
+        client.newCall(request).enqueue(new okhttp3.Callback() {
+            @Override
+            public void onFailure(okhttp3.Call call, java.io.IOException e) {
+                Log.e(TAG, "Update check failed", e);
+            }
+
+            @Override
+            public void onResponse(okhttp3.Call call, okhttp3.Response response) throws java.io.IOException {
+                if (response.isSuccessful() && response.body() != null) {
+                    final String json = response.body().string();
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            parseUpdateJson(json);
+                        }
+                    });
+                }
+            }
+        });
+    }
+
+    private void parseUpdateJson(String json) {
+        try {
+            com.google.gson.Gson gson = new com.google.gson.Gson();
+            UpdateInfo info = gson.fromJson(json, UpdateInfo.class);
+            if (info != null) {
+                int currentVersionCode = getPackageManager().getPackageInfo(getPackageName(), 0).versionCode;
+                if (info.versionCode > currentVersionCode) {
+                    showUpdateDialog(info);
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to parse update json", e);
+        }
+    }
+
+    private void showUpdateDialog(final UpdateInfo info) {
+        androidx.appcompat.app.AlertDialog.Builder builder = new androidx.appcompat.app.AlertDialog.Builder(this, R.style.Theme_DianshijiaLite_Dialog);
+        builder.setTitle("发现新版本 " + info.versionName);
+        builder.setMessage(info.updateMessage);
+        builder.setCancelable(false);
+        builder.setPositiveButton("立即更新", new android.content.DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(android.content.DialogInterface dialog, int which) {
+                startDownloadApk(info.apkUrl);
+            }
+        });
+        builder.setNegativeButton("以后再说", new android.content.DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(android.content.DialogInterface dialog, int which) {
+                dialog.dismiss();
+            }
+        });
+        androidx.appcompat.app.AlertDialog dialog = builder.create();
+        dialog.show();
+    }
+
+    private void showDownloadProgressDialog() {
+        androidx.appcompat.app.AlertDialog.Builder builder = new androidx.appcompat.app.AlertDialog.Builder(this, R.style.Theme_DianshijiaLite_Dialog);
+        View view = LayoutInflater.from(this).inflate(R.layout.layout_update_progress, null);
+        downloadProgressBar = view.findViewById(R.id.progress_bar);
+        textDownloadPercent = view.findViewById(R.id.text_download_percent);
+        builder.setView(view);
+        builder.setCancelable(false);
+        progressDialog = builder.create();
+        progressDialog.show();
+    }
+
+    private void startDownloadApk(final String url) {
+        showDownloadProgressDialog();
+
+        okhttp3.OkHttpClient client = com.dianshijia.lite.util.OkHttpUtils.getOkHttpClient();
+        okhttp3.Request request = new okhttp3.Request.Builder().url(url).build();
+        client.newCall(request).enqueue(new okhttp3.Callback() {
+            @Override
+            public void onFailure(okhttp3.Call call, final java.io.IOException e) {
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (progressDialog != null && progressDialog.isShowing()) {
+                            progressDialog.dismiss();
+                        }
+                        Toast.makeText(MainActivity.this, "下载更新失败: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                    }
+                });
+            }
+
+            @Override
+            public void onResponse(okhttp3.Call call, okhttp3.Response response) throws java.io.IOException {
+                if (!response.isSuccessful()) {
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            if (progressDialog != null && progressDialog.isShowing()) {
+                                progressDialog.dismiss();
+                            }
+                            Toast.makeText(MainActivity.this, "下载更新失败: 响应错误", Toast.LENGTH_LONG).show();
+                        }
+                    });
+                    return;
+                }
+
+                java.io.InputStream is = null;
+                java.io.FileOutputStream fos = null;
+                try {
+                    is = response.body().byteStream();
+                    long total = response.body().contentLength();
+                    
+                    final File apkFile = new File(getExternalCacheDir(), "update.apk");
+                    fos = new java.io.FileOutputStream(apkFile);
+
+                    byte[] buf = new byte[4096];
+                    long sum = 0;
+                    int len;
+                    while ((len = is.read(buf)) != -1) {
+                        fos.write(buf, 0, len);
+                        sum += len;
+                        final int progress = total > 0 ? (int) (sum * 100 / total) : 0;
+                        runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                if (downloadProgressBar != null) {
+                                    downloadProgressBar.setProgress(progress);
+                                }
+                                if (textDownloadPercent != null) {
+                                    textDownloadPercent.setText(progress + "%");
+                                }
+                            }
+                        });
+                    }
+                    fos.flush();
+
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            if (progressDialog != null && progressDialog.isShowing()) {
+                                progressDialog.dismiss();
+                            }
+                            installApk(apkFile);
+                        }
+                    });
+
+                } catch (final Exception e) {
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            if (progressDialog != null && progressDialog.isShowing()) {
+                                progressDialog.dismiss();
+                            }
+                            Toast.makeText(MainActivity.this, "保存更新文件出错: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                        }
+                    });
+                } finally {
+                    try {
+                        if (is != null) is.close();
+                    } catch (Exception ignored) {}
+                    try {
+                        if (fos != null) fos.close();
+                    } catch (Exception ignored) {}
+                }
+            }
+        });
+    }
+
+    private void installApk(File apkFile) {
+        if (!apkFile.exists()) return;
+        Intent intent = new Intent(Intent.ACTION_VIEW);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+            android.net.Uri apkUri = androidx.core.content.FileProvider.getUriForFile(this, getPackageName() + ".fileprovider", apkFile);
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            intent.setDataAndType(apkUri, "application/vnd.android.package-archive");
+        } else {
+            intent.setDataAndType(android.net.Uri.fromFile(apkFile), "application/vnd.android.package-archive");
+        }
+        try {
+            startActivity(intent);
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to start install activity", e);
+            Toast.makeText(this, "启动安装失败，请手动在文件管理器中安装", Toast.LENGTH_LONG).show();
         }
     }
 }
