@@ -36,73 +36,38 @@ Installing Android SDK Platform 33 in /usr/local/lib/android/sdk/platforms/andro
 > Task :app:generateDebugResources
 > Task :app:createDebugCompatibleScreenManifests
 > Task :app:extractDeepLinksDebug
-> Task :app:mergeDebugResources
 
-> Task :app:processDebugMainManifest
+> Task :app:processDebugMainManifest FAILED
 package="com.dianshijia.lite" found in source AndroidManifest.xml: /home/runner/work/dianshijia-lite/dianshijia-lite/app/src/main/AndroidManifest.xml.
 Setting the namespace via a source AndroidManifest.xml's package attribute is deprecated.
 Please instead set the namespace (or testNamespace) in the module's build.gradle file, as described here: https://developer.android.com/studio/build/configure-app-module#set-namespace
 This migration can be done automatically using the AGP Upgrade Assistant, please refer to https://developer.android.com/studio/build/agp-upgrade-assistant for more information.
+/home/runner/work/dianshijia-lite/dianshijia-lite/app/src/main/AndroidManifest.xml Error:
+	uses-sdk:minSdkVersion 16 cannot be smaller than version 21 declared in library [tv.danmaku.ijk.media:ijkplayer-arm64:0.8.8] /home/runner/.gradle/caches/transforms-3/ae4267177a7fd3269be777d6e0adfda2/transformed/jetified-ijkplayer-arm64-0.8.8/AndroidManifest.xml as the library might be using APIs not available in 16
+	Suggestion: use a compatible library with a minSdk of at most 16,
+		or increase this project's minSdk version to at least 21,
+		or use tools:overrideLibrary="tv.danmaku.ijk.media.player_arm64" to force usage (may lead to runtime failures)
 
-> Task :app:processDebugManifest
-> Task :app:mergeDebugShaders
-> Task :app:compileDebugShaders NO-SOURCE
-> Task :app:generateDebugAssets UP-TO-DATE
-> Task :app:mergeDebugAssets
-> Task :app:compressDebugAssets
-> Task :app:checkDebugDuplicateClasses
-> Task :app:extractProguardFiles
-> Task :app:processDebugJavaRes NO-SOURCE
-> Task :app:mergeDebugJniLibFolders
-> Task :app:mergeDebugNativeLibs
-> Task :app:mergeDebugJavaResource
-> Task :app:validateSigningDebug
-> Task :app:writeDebugAppMetadata
-> Task :app:writeDebugSigningConfigVersions
-> Task :app:processDebugManifestForPackage
+See http://g.co/androidstudio/manifest-merger for more information about the manifest merger.
 
-> Task :app:stripDebugDebugSymbols
-Unable to strip the following libraries, packaging them as they are: libijkffmpeg.so, libijkplayer.so, libijksdl.so.
 
-> Task :app:processDebugResources
-
-> Task :app:compileDebugJavaWithJavac
-/home/runner/work/dianshijia-lite/dianshijia-lite/app/src/main/java/com/dianshijia/lite/MainActivity.java:118: error: cannot find symbol
-    private ProgressBar downloadProgressBar;
-            ^
-  symbol:   class ProgressBar
-  location: class MainActivity
-/home/runner/work/dianshijia-lite/dianshijia-lite/app/src/main/java/com/dianshijia/lite/MainActivity.java:1932: error: cannot find symbol
-    private void installApk(File apkFile) {
-                            ^
-  symbol:   class File
-  location: class MainActivity
-/home/runner/work/dianshijia-lite/dianshijia-lite/app/src/main/java/com/dianshijia/lite/MainActivity.java:1876: error: cannot find symbol
-                    final File apkFile = new File(getExternalCacheDir(), "update.apk");
-                          ^
-  symbol: class File
-/home/runner/work/dianshijia-lite/dianshijia-lite/app/src/main/java/com/dianshijia/lite/MainActivity.java:1876: error: cannot find symbol
-                    final File apkFile = new File(getExternalCacheDir(), "update.apk");
-                                             ^
-  symbol: class File
-Note: /home/runner/work/dianshijia-lite/dianshijia-lite/app/src/main/java/com/dianshijia/lite/MainActivity.java uses or overrides a deprecated API.
-Note: Recompile with -Xlint:deprecation for details.
-4 errors
-
-> Task :app:compileDebugJavaWithJavac FAILED
+> Task :app:mergeDebugResources
 
 FAILURE: Build failed with an exception.
 
 * What went wrong:
-Execution failed for task ':app:compileDebugJavaWithJavac'.
-> Compilation failed; see the compiler error output for details.
+Execution failed for task ':app:processDebugMainManifest'.
+> Manifest merger failed : uses-sdk:minSdkVersion 16 cannot be smaller than version 21 declared in library [tv.danmaku.ijk.media:ijkplayer-arm64:0.8.8] /home/runner/.gradle/caches/transforms-3/ae4267177a7fd3269be777d6e0adfda2/transformed/jetified-ijkplayer-arm64-0.8.8/AndroidManifest.xml as the library might be using APIs not available in 16
+  	Suggestion: use a compatible library with a minSdk of at most 16,
+  		or increase this project's minSdk version to at least 21,
+  		or use tools:overrideLibrary="tv.danmaku.ijk.media.player_arm64" to force usage (may lead to runtime failures)
 
 * Try:
 > Run with --info or --debug option to get more log output.
 > Run with --scan to get full insights.
 
 * Exception is:
-org.gradle.api.tasks.TaskExecutionException: Execution failed for task ':app:compileDebugJavaWithJavac'.
+org.gradle.api.tasks.TaskExecutionException: Execution failed for task ':app:processDebugMainManifest'.
 	at org.gradle.api.internal.tasks.execution.ExecuteActionsTaskExecuter.lambda$executeIfValid$1(ExecuteActionsTaskExecuter.java:147)
 	at org.gradle.internal.Try$Failure.ifSuccessfulOrElse(Try.java:282)
 	at org.gradle.api.internal.tasks.execution.ExecuteActionsTaskExecuter.executeIfValid(ExecuteActionsTaskExecuter.java:145)
@@ -136,45 +101,21 @@ org.gradle.api.tasks.TaskExecutionException: Execution failed for task ':app:com
 	at org.gradle.execution.plan.DefaultPlanExecutor$ExecutorWorker.run(DefaultPlanExecutor.java:140)
 	at org.gradle.internal.concurrent.ExecutorPolicy$CatchAndRecordFailures.onExecute(ExecutorPolicy.java:64)
 	at org.gradle.internal.concurrent.ManagedExecutorImpl$1.run(ManagedExecutorImpl.java:48)
-Caused by: org.gradle.api.internal.tasks.compile.CompilationFailedException: Compilation failed; see the compiler error output for details.
-	at org.gradle.api.internal.tasks.compile.JdkJavaCompiler.execute(JdkJavaCompiler.java:56)
-	at org.gradle.api.internal.tasks.compile.JdkJavaCompiler.execute(JdkJavaCompiler.java:39)
-	at org.gradle.api.internal.tasks.compile.NormalizingJavaCompiler.delegateAndHandleErrors(NormalizingJavaCompiler.java:97)
-	at org.gradle.api.internal.tasks.compile.NormalizingJavaCompiler.execute(NormalizingJavaCompiler.java:51)
-	at org.gradle.api.internal.tasks.compile.NormalizingJavaCompiler.execute(NormalizingJavaCompiler.java:37)
-	at org.gradle.api.internal.tasks.compile.AnnotationProcessorDiscoveringCompiler.execute(AnnotationProcessorDiscoveringCompiler.java:51)
-	at org.gradle.api.internal.tasks.compile.AnnotationProcessorDiscoveringCompiler.execute(AnnotationProcessorDiscoveringCompiler.java:37)
-	at org.gradle.api.internal.tasks.compile.ModuleApplicationNameWritingCompiler.execute(ModuleApplicationNameWritingCompiler.java:46)
-	at org.gradle.api.internal.tasks.compile.ModuleApplicationNameWritingCompiler.execute(ModuleApplicationNameWritingCompiler.java:36)
-	at org.gradle.jvm.toolchain.internal.DefaultToolchainJavaCompiler.execute(DefaultToolchainJavaCompiler.java:57)
-	at org.gradle.api.tasks.compile.JavaCompile.lambda$createToolchainCompiler$1(JavaCompile.java:232)
-	at org.gradle.api.internal.tasks.compile.CleaningJavaCompiler.execute(CleaningJavaCompiler.java:53)
-	at org.gradle.api.internal.tasks.compile.incremental.IncrementalCompilerFactory.lambda$createRebuildAllCompiler$0(IncrementalCompilerFactory.java:52)
-	at org.gradle.api.internal.tasks.compile.incremental.SelectiveCompiler.execute(SelectiveCompiler.java:67)
-	at org.gradle.api.internal.tasks.compile.incremental.SelectiveCompiler.execute(SelectiveCompiler.java:41)
-	at org.gradle.api.internal.tasks.compile.incremental.IncrementalResultStoringCompiler.execute(IncrementalResultStoringCompiler.java:66)
-	at org.gradle.api.internal.tasks.compile.incremental.IncrementalResultStoringCompiler.execute(IncrementalResultStoringCompiler.java:52)
-	at org.gradle.api.internal.tasks.compile.CompileJavaBuildOperationReportingCompiler$2.call(CompileJavaBuildOperationReportingCompiler.java:59)
-	at org.gradle.api.internal.tasks.compile.CompileJavaBuildOperationReportingCompiler$2.call(CompileJavaBuildOperationReportingCompiler.java:51)
-	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:204)
-	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:199)
-	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:66)
-	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:59)
-	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:157)
-	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:59)
-	at org.gradle.internal.operations.DefaultBuildOperationRunner.call(DefaultBuildOperationRunner.java:53)
-	at org.gradle.internal.operations.DefaultBuildOperationExecutor.call(DefaultBuildOperationExecutor.java:73)
-	at org.gradle.api.internal.tasks.compile.CompileJavaBuildOperationReportingCompiler.execute(CompileJavaBuildOperationReportingCompiler.java:51)
-	at org.gradle.api.tasks.compile.JavaCompile.performCompilation(JavaCompile.java:279)
-	at org.gradle.api.tasks.compile.JavaCompile.performIncrementalCompilation(JavaCompile.java:165)
-	at org.gradle.api.tasks.compile.JavaCompile.compile(JavaCompile.java:146)
+Caused by: java.lang.RuntimeException: Manifest merger failed : uses-sdk:minSdkVersion 16 cannot be smaller than version 21 declared in library [tv.danmaku.ijk.media:ijkplayer-arm64:0.8.8] /home/runner/.gradle/caches/transforms-3/ae4267177a7fd3269be777d6e0adfda2/transformed/jetified-ijkplayer-arm64-0.8.8/AndroidManifest.xml as the library might be using APIs not available in 16
+	Suggestion: use a compatible library with a minSdk of at most 16,
+		or increase this project's minSdk version to at least 21,
+		or use tools:overrideLibrary="tv.danmaku.ijk.media.player_arm64" to force usage (may lead to runtime failures)
+	at com.android.build.gradle.internal.tasks.manifest.ManifestHelperKt.mergeManifests(ManifestHelper.kt:100)
+	at com.android.build.gradle.tasks.ProcessApplicationManifest.doTaskAction(ProcessApplicationManifest.kt:158)
+	at com.android.build.gradle.internal.tasks.NonIncrementalTask$taskAction$$inlined$recordTaskAction$1.invoke(BaseTask.kt:66)
+	at com.android.build.gradle.internal.tasks.Blocks.recordSpan(Blocks.java:51)
+	at com.android.build.gradle.internal.tasks.NonIncrementalTask.taskAction(NonIncrementalTask.kt:97)
 	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
 	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62)
 	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
 	at org.gradle.internal.reflect.JavaMethod.invoke(JavaMethod.java:104)
-	at org.gradle.api.internal.project.taskfactory.IncrementalInputsTaskAction.doExecute(IncrementalInputsTaskAction.java:32)
+	at org.gradle.api.internal.project.taskfactory.StandardTaskAction.doExecute(StandardTaskAction.java:58)
 	at org.gradle.api.internal.project.taskfactory.StandardTaskAction.execute(StandardTaskAction.java:51)
-	at org.gradle.api.internal.project.taskfactory.AbstractIncrementalTaskAction.execute(AbstractIncrementalTaskAction.java:25)
 	at org.gradle.api.internal.project.taskfactory.StandardTaskAction.execute(StandardTaskAction.java:29)
 	at org.gradle.api.internal.tasks.execution.TaskExecution$3.run(TaskExecution.java:242)
 	at org.gradle.internal.operations.DefaultBuildOperationRunner$1.execute(DefaultBuildOperationRunner.java:29)
@@ -241,8 +182,7 @@ Caused by: org.gradle.api.internal.tasks.compile.CompilationFailedException: Com
 	at org.gradle.internal.execution.steps.CaptureStateBeforeExecutionStep.execute(CaptureStateBeforeExecutionStep.java:76)
 	at org.gradle.internal.execution.steps.CaptureStateBeforeExecutionStep.execute(CaptureStateBeforeExecutionStep.java:50)
 	at org.gradle.internal.execution.steps.SkipEmptyWorkStep.executeWithNoEmptySources(SkipEmptyWorkStep.java:249)
-	at org.gradle.internal.execution.steps.SkipEmptyWorkStep.executeWithNoEmptySources(SkipEmptyWorkStep.java:204)
-	at org.gradle.internal.execution.steps.SkipEmptyWorkStep.execute(SkipEmptyWorkStep.java:83)
+	at org.gradle.internal.execution.steps.SkipEmptyWorkStep.execute(SkipEmptyWorkStep.java:86)
 	at org.gradle.internal.execution.steps.SkipEmptyWorkStep.execute(SkipEmptyWorkStep.java:54)
 	at org.gradle.internal.execution.steps.RemoveUntrackedExecutionStateStep.execute(RemoveUntrackedExecutionStateStep.java:32)
 	at org.gradle.internal.execution.steps.RemoveUntrackedExecutionStateStep.execute(RemoveUntrackedExecutionStateStep.java:21)
@@ -299,5 +239,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 See https://docs.gradle.org/7.4/userguide/command_line_interface.html#sec:command_line_warnings
 
-BUILD FAILED in 46s
-25 actionable tasks: 25 executed
+BUILD FAILED in 48s
+9 actionable tasks: 9 executed
