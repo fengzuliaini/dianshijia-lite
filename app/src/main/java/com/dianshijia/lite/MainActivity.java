@@ -378,7 +378,15 @@ public class MainActivity extends AppCompatActivity {
         listCategories.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                if (position >= 0 && position < catego        // 频道列表触屏点按监听：点击后自动开启直播，并同步拉起该频道的历史回看备用列表
+                if (position >= 0 && position < categories.size()) {
+                    updateChannelList(categories.get(position));
+                }
+                listChannels.requestFocus();
+                resetSidebarHideTimer();
+            }
+        });
+
+        // 频道列表触屏点按监听：点击后自动开启直播，并同步拉起该频道的历史回看备用列表
         listChannels.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
@@ -420,27 +428,6 @@ public class MainActivity extends AppCompatActivity {
                         }
                     };
                     tvHandler.postDelayed(playChannelDelayRunnable, 300);
-                }
-            }
-        });触屏点按监听：点击后自动开启直播，并同步拉起该频道的历史回看备用列表
-        listChannels.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-            @Override
-            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                List<Channel> channels = groupedChannels.get(currentCategory);
-                if (channels != null && position >= 0 && position < channels.size()) {
-                    Channel channel = channels.get(position);
-                    isCatchupMode = false; // 触屏点台，默认直接切回直播模式
-                    layoutController.setVisibility(View.GONE);
-                    
-                    playChannel(channel);
-
-                    if (channel.getTvodUrl() != null) {
-                        updateCatchupList(channel);
-                        listCatchup.setVisibility(View.VISIBLE);
-                    } else {
-                        listCatchup.setVisibility(View.GONE);
-                    }
-                    resetSidebarHideTimer();
                 }
             }
         });
