@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     package="com.dianshijia.lite">
+
+    <!-- 强制忽略64位IjkPlayer的minSdkVersion限制，允许32位电视盒子继续在minSdk 16下兼容安装 -->
+    <uses-sdk tools:overrideLibrary="tv.danmaku.ijk.media.player_arm64, tv.danmaku.ijk.media.player_x86_64" />
 
     <!-- 播放网络直播源所必须的网络权限 -->
     <uses-permission android:name="android.permission.INTERNET" />
