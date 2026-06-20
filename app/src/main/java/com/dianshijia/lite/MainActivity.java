@@ -193,6 +193,20 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        // 全局未捕获异常拦截器，如果遇到任何崩溃，在界面上弹窗提示堆栈，方便秒级定位
+        Thread.setDefaultUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
+            @Override
+            public void uncaughtException(Thread t, final Throwable e) {
+                Log.e("FATAL_CRASH", "Crash detected in thread " + t.getName(), e);
+                try {
+                    android.os.Looper.prepare();
+                    Toast.makeText(MainActivity.this, "程序遇到严重错误闪退：\n" + Log.getStackTraceString(e), Toast.LENGTH_LONG).show();
+                    android.os.Looper.loop();
+                } catch (Exception ignored) {}
+                System.exit(1);
+            }
+        });
+
         super.onCreate(savedInstanceState);
         enableTls12Helper();
         
@@ -392,16 +406,12 @@ public class MainActivity extends AppCompatActivity {
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
                 List<Channel> channels = groupedChannels.get(currentCategory);
                 if (channels != null && position >= 0 && position < channels.size()) {
-                    final Channel channel = channels.get(position);
+                    Channel channel = channels.get(position);
                     isCatchupMode = false; // 触屏点台，默认直接切回直播模式
                     layoutController.setVisibility(View.GONE);
                     
-                    // 1. 立即清除任何正在等待的旧延迟播放请求，防止频繁切台任务堆积
-                    if (playChannelDelayRunnable != null) {
-                        tvHandler.removeCallbacks(playChannelDelayRunnable);
-                    }
-                    
-                    // 2. 立即将 UI 的状态切过去并显示加载提示，让侧边栏宽度变化、重绘和 Surface 重建在此期间安全发生
+                    playChannel(channel);
+
                     if (channel.getTvodUrl() != null) {
                         updateCatchupList(channel);
                         listCatchup.setVisibility(View.VISIBLE);
@@ -409,25 +419,6 @@ public class MainActivity extends AppCompatActivity {
                         listCatchup.setVisibility(View.GONE);
                     }
                     resetSidebarHideTimer();
-
-                    // 立即在主线程中展现加载浮层，提高用户反馈灵敏度
-                    runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            layoutLoading.setVisibility(View.VISIBLE);
-                            textLoadingStatus.setText(R.string.loading_stream);
-                        }
-                    });
-
-                    // 3. 延迟 300 毫秒执行 playChannel()，避开重绘引发的 Surface 瞬间重建和 ijkplayer 正在 prepare 时的死锁
-                    playChannelDelayRunnable = new Runnable() {
-                        @Override
-                        public void run() {
-                            playChannel(channel);
-                            playChannelDelayRunnable = null;
-                        }
-                    };
-                    tvHandler.postDelayed(playChannelDelayRunnable, 300);
                 }
             }
         });
@@ -522,9 +513,14 @@ public class MainActivity extends AppCompatActivity {
             IjkMediaPlayer.loadLibrariesOnce(null);
             IjkMediaPlayer.native_profileBegin("libijkplayer.so");
             Log.i(TAG, "IjkMediaPlayer native libraries loaded successfully");
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to load ijkplayer native libraries", e);
-            Toast.makeText(this, "播放内核加载失败，请检查安装包兼容性", Toast.LENGTH_LONG).show();
+        } catch (final Throwable t) {
+            Log.e(TAG, "Failed to load ijkplayer native libraries", t);
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    Toast.makeText(MainActivity.this, "播放内核加载失败，请检查安装包兼容性: " + t.getMessage(), Toast.LENGTH_LONG).show();
+                }
+            });
         }
     }
 
@@ -932,10 +928,6 @@ public class MainActivity extends AppCompatActivity {
             // 核心网络防卡死：设置连接和读取超时，超时会自动触发 onError
             ijkPlayer.setOption(IjkMediaPlayer.OPT_CATEGORY_FORMAT, "timeout", 8000000); // 设置连接/读取超时时间为 8 秒 (8000000 微秒)
             ijkPlayer.setOption(IjkMediaPlayer.OPT_CATEGORY_FORMAT, "reconnect", 1);     // 开启底层 HTTP/TCP 重连
-
-            if (playSurface != null) {
-                ijkPlayer.setSurface(playSurface);
-            }
 
             // 监听：准备完成
             ijkPlayer.setOnPreparedListener(new IMediaPlayer.OnPreparedListener() {
