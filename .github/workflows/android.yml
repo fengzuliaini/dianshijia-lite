@@ -64,10 +64,12 @@ jobs:
         echo "{" > update.json
         echo "  \"versionCode\": $VERSION_CODE," >> update.json
         echo "  \"versionName\": \"$VERSION_NAME\"," >> update.json
-        echo "  \"apkUrl\": \"https://my.3223516.xyz/app-release.apk\"," >> update.json
-        echo "  \"updateMessage\": \"GitHub Actions 自动打包发布版本 $VERSION_NAME ($VERSION_CODE)\\\n更新日志：1.新增我的收藏功能；2.整合EPG电子节目单并按节目切分回看；3.配置安全固定签名机制。\\\n提示：由于本次更新启用了安全固签，若覆盖安装时提示[应用未安装]，请先手动卸载电视上的旧版，重新安装此版本即可。以后更新即可直接无缝自动覆盖升级！\"" >> update.json
+        echo "  \"apkUrl\": \"https://my.3223516.xyz/dianshijia-lite-32.apk\"," >> update.json
+        echo "  \"apkUrl64\": \"https://my.3223516.xyz/dianshijia-lite-64.apk\"," >> update.json
+        echo "  \"updateMessage\": \"发现新版本 $VERSION_NAME ($VERSION_CODE)！\\\n【本次核心优化与修复】：\\\n1. 修复手机上切换频道按第一下提示『正在连接信号源』卡死的 Bug；\\\n2. 增加手机滑动手势：屏幕左右滑动换源（切换线路），上下滑动换台，交互极佳；\\\n3. 侧边栏当前频道列表右侧新增金色快捷『换源』触控按钮，一键切源更直观；\\\n4. 原生适配 64 位手机系统，自动更新时根据系统架构自动路由分发（盒子下载 32 位精简包，手机下载 64 位原生包）；\\\n5. 彻底修复直播播放卡顿卡死问题，引入底层超时及 8 秒卡顿缓冲上层超时自动换线/重试自愈机制！\"" >> update.json
         echo "}" >> update.json
-        cp app/build/outputs/apk/debug/app-debug.apk app-release.apk
+        cp app/build/outputs/apk/debug/app-armeabi-v7a-debug.apk dianshijia-lite-32.apk
+        cp app/build/outputs/apk/debug/app-arm64-v8a-debug.apk dianshijia-lite-64.apk
 
     - name: Deploy to VPS
       uses: appleboy/scp-action@master
@@ -76,6 +78,6 @@ jobs:
         username: ${{ secrets.VPS_USERNAME }}
         password: ${{ secrets.VPS_PASSWORD }}
         port: ${{ secrets.VPS_PORT }}
-        source: "app-release.apk,update.json"
+        source: "dianshijia-lite-32.apk,dianshijia-lite-64.apk,update.json"
         target: ${{ secrets.VPS_TARGET_DIR }}
         strip_components: 0

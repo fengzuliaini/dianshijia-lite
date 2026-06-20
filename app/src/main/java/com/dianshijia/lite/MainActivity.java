@@ -126,6 +126,10 @@ public class MainActivity extends AppCompatActivity {
 
     private Runnable retryPlayRunnable = null; // 播放失败自动重试的任务
 
+    private Runnable playChannelDelayRunnable = null; // 频道列表点击延迟播放任务，防重绘卡死
+    private Runnable bufferTimeoutRunnable = null;    // 缓冲超时自动恢复任务
+    private android.view.GestureDetector gestureDetector = null; // 手机触屏手势识别器
+
     // 自动更新提示与进度控件
     private androidx.appcompat.app.AlertDialog progressDialog;
     private ProgressBar downloadProgressBar;
@@ -259,6 +263,16 @@ public class MainActivity extends AppCompatActivity {
         textOverlayName = findViewById(R.id.text_overlay_name);
         textOverlayCurrentProg = findViewById(R.id.text_overlay_current_program);
         textOverlayNextProg = findViewById(R.id.text_overlay_next_program);
+        layoutInfoOverlay.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (!isCatchupMode && currentChannel != null && currentChannel.getLiveUrls().size() > 1) {
+                    switchLine(true);
+                    tvHandler.removeMessages(MSG_HIDE_OVERLAY);
+                    tvHandler.sendEmptyMessageDelayed(MSG_HIDE_OVERLAY, DELAY_AUTO_HIDE);
+                }
+            }
+        });
         
         layoutLoading = findViewById(R.id.layout_loading);
         textLoadingStatus = findViewById(R.id.text_loading_status);
@@ -284,18 +298,64 @@ public class MainActivity extends AppCompatActivity {
         catchupAdapter = new CatchupAdapter();
         listCatchup.setAdapter(catchupAdapter);
 
-        // 触屏交互支持：点击全屏画面呼出或收起侧边栏，同时也会激活回看控制栏的显示
-        playerView.setOnClickListener(new View.OnClickListener() {
+        // 触屏交互支持：用 GestureDetector 接管，实现单指轻触呼出侧边栏与OSD，左右滑换源，上下滑换台
+        gestureDetector = new android.view.GestureDetector(this, new android.view.GestureDetector.SimpleOnGestureListener() {
             @Override
-            public void onClick(View v) {
+            public boolean onDown(android.view.MotionEvent e) {
+                // 必须返回 true，否则后续的滑动 Fling 手势无法被识别器捕获
+                return true;
+            }
+
+            @Override
+            public boolean onSingleTapConfirmed(android.view.MotionEvent e) {
                 if (isSidebarShowing) {
                     hideSidebar();
                 } else {
                     showSidebar();
+                    showInfoOverlay(); // 呼出侧边栏时同步显示 OSD 浮窗，提示并支持点击换线
                 }
                 if (isCatchupMode) {
                     showController();
                 }
+                return true;
+            }
+
+            @Override
+            public boolean onFling(android.view.MotionEvent e1, android.view.MotionEvent e2, float velocityX, float velocityY) {
+                if (e1 == null || e2 == null) return false;
+                float deltaX = e2.getX() - e1.getX();
+                float deltaY = e2.getY() - e1.getY();
+
+                if (Math.abs(deltaX) > Math.abs(deltaY)) {
+                    // 横向滑动：左右滑换源
+                    if (Math.abs(deltaX) > 100 && Math.abs(velocityX) > 100) {
+                        if (deltaX > 0) {
+                            switchLine(true); // 向右滑切换到下一线路
+                        } else {
+                            switchLine(false); // 向左滑切换到上一线路
+                        }
+                        return true;
+                    }
+                } else {
+                    // 纵向滑动：上下滑换台
+                    if (Math.abs(deltaY) > 100 && Math.abs(velocityY) > 100) {
+                        if (deltaY > 0) {
+                            switchChannel(true); // 向下滑切换到下一台
+                        } else {
+                            switchChannel(false); // 向上滑切换到上一台
+                        }
+                        return true;
+                    }
+                }
+                return false;
+            }
+        });
+
+        playerView.setOnTouchListener(new android.view.View.OnTouchListener() {
+            @Override
+            public boolean onTouch(android.view.View v, android.view.MotionEvent event) {
+                v.performClick(); // 规避 Accessibility 检查警告
+                return gestureDetector.onTouchEvent(event);
             }
         });
 
@@ -318,31 +378,51 @@ public class MainActivity extends AppCompatActivity {
         listCategories.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                if (position >= 0 && position < categories.size()) {
-                    updateChannelList(categories.get(position));
-                }
-                listChannels.requestFocus();
-                resetSidebarHideTimer();
-            }
-        });
-
-        // 频道列表选中监听：在后台默默更新对应频道的回看节目列表
-        listChannels.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+                if (position >= 0 && position < catego        // 频道列表触屏点按监听：点击后自动开启直播，并同步拉起该频道的历史回看备用列表
+        listChannels.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
-            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
                 List<Channel> channels = groupedChannels.get(currentCategory);
                 if (channels != null && position >= 0 && position < channels.size()) {
-                    Channel channel = channels.get(position);
-                    updateCatchupList(channel); // 静默更新回看列表数据，不显示 UI
+                    final Channel channel = channels.get(position);
+                    isCatchupMode = false; // 触屏点台，默认直接切回直播模式
+                    layoutController.setVisibility(View.GONE);
+                    
+                    // 1. 立即清除任何正在等待的旧延迟播放请求，防止频繁切台任务堆积
+                    if (playChannelDelayRunnable != null) {
+                        tvHandler.removeCallbacks(playChannelDelayRunnable);
+                    }
+                    
+                    // 2. 立即将 UI 的状态切过去并显示加载提示，让侧边栏宽度变化、重绘和 Surface 重建在此期间安全发生
+                    if (channel.getTvodUrl() != null) {
+                        updateCatchupList(channel);
+                        listCatchup.setVisibility(View.VISIBLE);
+                    } else {
+                        listCatchup.setVisibility(View.GONE);
+                    }
                     resetSidebarHideTimer();
+
+                    // 立即在主线程中展现加载浮层，提高用户反馈灵敏度
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            layoutLoading.setVisibility(View.VISIBLE);
+                            textLoadingStatus.setText(R.string.loading_stream);
+                        }
+                    });
+
+                    // 3. 延迟 300 毫秒执行 playChannel()，避开重绘引发的 Surface 瞬间重建和 ijkplayer 正在 prepare 时的死锁
+                    playChannelDelayRunnable = new Runnable() {
+                        @Override
+                        public void run() {
+                            playChannel(channel);
+                            playChannelDelayRunnable = null;
+                        }
+                    };
+                    tvHandler.postDelayed(playChannelDelayRunnable, 300);
                 }
             }
-
-            @Override
-            public void onNothingSelected(AdapterView<?> parent) {}
-        });
-
-        // 频道列表触屏点按监听：点击后自动开启直播，并同步拉起该频道的历史回看备用列表
+        });触屏点按监听：点击后自动开启直播，并同步拉起该频道的历史回看备用列表
         listChannels.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
@@ -473,6 +553,10 @@ public class MainActivity extends AppCompatActivity {
 
     private void releaseIjkPlayer() {
         try {
+            if (bufferTimeoutRunnable != null) {
+                tvHandler.removeCallbacks(bufferTimeoutRunnable);
+                bufferTimeoutRunnable = null;
+            }
             if (ijkPlayer != null) {
                 ijkPlayer.stop();
                 ijkPlayer.setDisplay(null);
@@ -720,7 +804,7 @@ public class MainActivity extends AppCompatActivity {
         // 提示框展现台号 + 频道名 + 线路 (例: CCTV1 [线路 1/3])
         String lineInfo = "";
         if (channel.getLiveUrls().size() > 1) {
-            lineInfo = " (线路 " + (channel.getCurrentLineIndex() + 1) + "/" + channel.getLiveUrls().size() + ")";
+            lineInfo = " (线路 " + (channel.getCurrentLineIndex() + 1) + "/" + channel.getLiveUrls().size() + ") [点击换线]";
         }
         textOverlayName.setText(channel.getName() + lineInfo);
         showInfoOverlay();
@@ -771,7 +855,51 @@ public class MainActivity extends AppCompatActivity {
 
         // 展现底部回看操作控制条
         btnPlayPause.setText("⏸");
-        showController();
+    }
+
+    private void handlePlayError() {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                // 安全释放当前出错的播放器
+                releaseIjkPlayer();
+
+                if (!isCatchupMode && currentChannel != null && currentChannel.getLiveUrls().size() > 1) {
+                    layoutLoading.setVisibility(View.VISIBLE);
+                    textLoadingStatus.setText("当前线路加载失败，正在尝试自动换线...");
+
+                    if (autoSwitchLineRunnable != null) {
+                        tvHandler.removeCallbacks(autoSwitchLineRunnable);
+                    }
+                    autoSwitchLineRunnable = new Runnable() {
+                        @Override
+                        public void run() {
+                            switchLine(true);
+                        }
+                    };
+                    tvHandler.postDelayed(autoSwitchLineRunnable, 3000);
+                } else {
+                    layoutLoading.setVisibility(View.VISIBLE);
+                    textLoadingStatus.setText(R.string.parse_failed);
+
+                    if (retryPlayRunnable != null) {
+                        tvHandler.removeCallbacks(retryPlayRunnable);
+                    }
+                    retryPlayRunnable = new Runnable() {
+                        @Override
+                        public void run() {
+                            retryPlayRunnable = null;
+                            if (isCatchupMode && currentCatchupProgram != null) {
+                                playCatchup(currentChannel, currentCatchupProgram);
+                            } else if (currentChannel != null) {
+                                playChannel(currentChannel);
+                            }
+                        }
+                    };
+                    tvHandler.postDelayed(retryPlayRunnable, 3000);
+                }
+            }
+        });
     }
 
     private void startVideo(final String url) {
@@ -814,6 +942,10 @@ public class MainActivity extends AppCompatActivity {
             String userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/102.0.0.0 Safari/537.36";
             ijkPlayer.setOption(IjkMediaPlayer.OPT_CATEGORY_FORMAT, "user-agent", userAgent);
 
+            // 核心网络防卡死：设置连接和读取超时，超时会自动触发 onError
+            ijkPlayer.setOption(IjkMediaPlayer.OPT_CATEGORY_FORMAT, "timeout", 8000000); // 设置连接/读取超时时间为 8 秒 (8000000 微秒)
+            ijkPlayer.setOption(IjkMediaPlayer.OPT_CATEGORY_FORMAT, "reconnect", 1);     // 开启底层 HTTP/TCP 重连
+
             if (playSurface != null) {
                 ijkPlayer.setSurface(playSurface);
             }
@@ -823,6 +955,9 @@ public class MainActivity extends AppCompatActivity {
                 @Override
                 public void onPrepared(IMediaPlayer mp) {
                     Log.i(TAG, "IjkPlayer onPrepared, start playing");
+                    if (playSurface != null) {
+                        mp.setSurface(playSurface);
+                    }
                     runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
@@ -830,6 +965,12 @@ public class MainActivity extends AppCompatActivity {
                             showInfoOverlay();
                         }
                     });
+
+                    // 播放成功开启，安全移除挂着的缓冲超时定时器
+                    if (bufferTimeoutRunnable != null) {
+                        tvHandler.removeCallbacks(bufferTimeoutRunnable);
+                        bufferTimeoutRunnable = null;
+                    }
                     mp.start();
                 }
             });
@@ -839,50 +980,12 @@ public class MainActivity extends AppCompatActivity {
                 @Override
                 public boolean onError(IMediaPlayer mp, int what, int extra) {
                     Log.e(TAG, "IjkPlayer Error occurred: what=" + what + ", extra=" + extra);
-                    runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            if (!isCatchupMode && currentChannel != null && currentChannel.getLiveUrls().size() > 1) {
-                                layoutLoading.setVisibility(View.VISIBLE);
-                                textLoadingStatus.setText("当前线路加载失败，正在尝试自动换线...");
-
-                                if (autoSwitchLineRunnable != null) {
-                                    tvHandler.removeCallbacks(autoSwitchLineRunnable);
-                                }
-                                autoSwitchLineRunnable = new Runnable() {
-                                    @Override
-                                    public void run() {
-                                        switchLine(true);
-                                    }
-                                };
-                                tvHandler.postDelayed(autoSwitchLineRunnable, 3000);
-                            } else {
-                                layoutLoading.setVisibility(View.VISIBLE);
-                                textLoadingStatus.setText(R.string.parse_failed);
-
-                                if (retryPlayRunnable != null) {
-                                    tvHandler.removeCallbacks(retryPlayRunnable);
-                                }
-                                retryPlayRunnable = new Runnable() {
-                                    @Override
-                                    public void run() {
-                                        retryPlayRunnable = null;
-                                        if (isCatchupMode && currentCatchupProgram != null) {
-                                            playCatchup(currentChannel, currentCatchupProgram);
-                                        } else if (currentChannel != null) {
-                                            playChannel(currentChannel);
-                                        }
-                                    }
-                                };
-                                tvHandler.postDelayed(retryPlayRunnable, 3000);
-                            }
-                        }
-                    });
-                    return true; // 返回true代表我们内部已处理完毕
+                    handlePlayError();
+                    return true;
                 }
             });
 
-            // 监听：缓冲信息更新以实时展现加载状态
+            // 监听：缓冲信息更新以实时展现加载状态，并实现缓冲卡死自愈
             ijkPlayer.setOnInfoListener(new IMediaPlayer.OnInfoListener() {
                 @Override
                 public boolean onInfo(IMediaPlayer mp, int what, int extra) {
@@ -894,6 +997,22 @@ public class MainActivity extends AppCompatActivity {
                                 textLoadingStatus.setText(R.string.loading_stream);
                             }
                         });
+
+                        // 直播模式下遇到卡顿缓冲，启动 8 秒防卡顿超时自动恢复机制
+                        if (!isCatchupMode) {
+                            if (bufferTimeoutRunnable != null) {
+                                tvHandler.removeCallbacks(bufferTimeoutRunnable);
+                            }
+                            bufferTimeoutRunnable = new Runnable() {
+                                @Override
+                                public void run() {
+                                    Log.w(TAG, "直播流卡顿达到 8 秒，主动断开当前网络并触发换源自愈！");
+                                    bufferTimeoutRunnable = null;
+                                    handlePlayError();
+                                }
+                            };
+                            tvHandler.postDelayed(bufferTimeoutRunnable, 8000);
+                        }
                     } else if (what == IMediaPlayer.MEDIA_INFO_BUFFERING_END) {
                         runOnUiThread(new Runnable() {
                             @Override
@@ -901,6 +1020,11 @@ public class MainActivity extends AppCompatActivity {
                                 layoutLoading.setVisibility(View.GONE);
                             }
                         });
+
+                        if (bufferTimeoutRunnable != null) {
+                            tvHandler.removeCallbacks(bufferTimeoutRunnable);
+                            bufferTimeoutRunnable = null;
+                        }
                     }
                     return true;
                 }
@@ -1532,6 +1656,22 @@ public class MainActivity extends AppCompatActivity {
                     currentProgTv.setVisibility(View.GONE);
                 }
 
+                TextView btnSwitchLine = convertView.findViewById(R.id.btn_switch_line);
+                if (c == currentChannel && c.getLiveUrls().size() > 1) {
+                    btnSwitchLine.setVisibility(View.VISIBLE);
+                    btnSwitchLine.setText("换源 " + (c.getCurrentLineIndex() + 1) + "/" + c.getLiveUrls().size());
+                    btnSwitchLine.setOnClickListener(new View.OnClickListener() {
+                        @Override
+                        public void onClick(View v) {
+                            switchLine(true); // 点击循环换源
+                            notifyDataSetChanged(); // 局部刷新文本
+                        }
+                    });
+                } else {
+                    btnSwitchLine.setVisibility(View.GONE);
+                    btnSwitchLine.setOnClickListener(null);
+                }
+
                 convertView.setSelected(c == currentChannel);
             }
             return convertView;
@@ -1941,6 +2081,7 @@ public class MainActivity extends AppCompatActivity {
         int versionCode;
         String versionName;
         String apkUrl;
+        String apkUrl64; // 新增 64 位下载地址
         String updateMessage;
     }
 
@@ -1978,6 +2119,25 @@ public class MainActivity extends AppCompatActivity {
             if (info != null) {
                 int currentVersionCode = getPackageManager().getPackageInfo(getPackageName(), 0).versionCode;
                 if (info.versionCode > currentVersionCode) {
+                    // 判断当前设备是否为支持 64 位的系统环境
+                    boolean is64Bit = false;
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
+                        for (String abi : android.os.Build.SUPPORTED_ABIS) {
+                            if (abi.contains("arm64") || abi.contains("x86_64") || abi.contains("v8a")) {
+                                is64Bit = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    // 如果是 64 位系统且提供了 64 位专属包下载链接，则智能路由替换
+                    if (is64Bit && info.apkUrl64 != null && !info.apkUrl64.isEmpty()) {
+                        info.apkUrl = info.apkUrl64;
+                        Log.i(TAG, "检测到64位系统环境，自适应切换至64位专版APK下载：" + info.apkUrl64);
+                    } else {
+                        Log.i(TAG, "检测到32位或兼容系统环境，默认采用标准32位APK下载：" + info.apkUrl);
+                    }
+
                     showUpdateDialog(info);
                 }
             }

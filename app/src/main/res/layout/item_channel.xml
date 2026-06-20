@@ -48,4 +48,23 @@
             android:layout_marginTop="2dp"
             android:visibility="gone" />
     </LinearLayout>
+
+    <!-- 换源按钮：仅在手机触屏操作、当前正在播放且有多条线路时展示 -->
+    <TextView
+        android:id="@+id/btn_switch_line"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_vertical"
+        android:textSize="12sp"
+        android:textColor="@color/accent_gold"
+        android:background="@drawable/bg_line_btn"
+        android:paddingLeft="8dp"
+        android:paddingRight="8dp"
+        android:paddingTop="5dp"
+        android:paddingBottom="5dp"
+        android:text="换源"
+        android:focusable="false"
+        android:clickable="true"
+        android:visibility="gone" />
 </LinearLayout>
+
