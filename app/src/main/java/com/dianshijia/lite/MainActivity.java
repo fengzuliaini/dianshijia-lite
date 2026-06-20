@@ -268,7 +268,9 @@ public class MainActivity extends AppCompatActivity {
                 playSurface = new Surface(surfaceTexture);
                 if (pendingPlayUrl != null) {
                     Log.i(TAG, "onSurfaceTextureAvailable: pendingPlayUrl found, starting delayed video: " + pendingPlayUrl);
-                    startVideo(pendingPlayUrl);
+                    String urlToPlay = pendingPlayUrl;
+                    pendingPlayUrl = null;
+                    startVideo(urlToPlay);
                 } else if (ijkPlayer != null) {
                     ijkPlayer.setSurface(playSurface);
                 }
@@ -298,6 +300,15 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         });
+        
+        if (playerView.isAvailable()) {
+            playSurface = new Surface(playerView.getSurfaceTexture());
+            if (pendingPlayUrl != null) {
+                String urlToPlay = pendingPlayUrl;
+                pendingPlayUrl = null;
+                startVideo(urlToPlay);
+            }
+        }
         layoutSidebar = findViewById(R.id.layout_sidebar);
         listCategories = findViewById(R.id.list_categories);
         listChannels = findViewById(R.id.list_channels);
@@ -1631,18 +1642,7 @@ public class MainActivity extends AppCompatActivity {
             
             tv.setSelected(cat.equals(currentCategory));
 
-            // 触屏直接点击分类优化
-            convertView.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    if (position >= 0 && position < categories.size()) {
-                        updateChannelList(categories.get(position));
-                    }
-                    listChannels.requestFocus();
-                    resetSidebarHideTimer();
-                }
-            });
-
+            // 移除导致列表焦点问题的 onClickListener，由 ListView 原生处理
             return convertView;
         }
     }
@@ -1714,25 +1714,7 @@ public class MainActivity extends AppCompatActivity {
 
                 convertView.setSelected(c == currentChannel);
 
-                // 触屏直接点击频道优化，解决第一下不响应、多下点击的Bug
-                convertView.setOnClickListener(new View.OnClickListener() {
-                    @Override
-                    public void onClick(View v) {
-                        isCatchupMode = false; // 触屏点台，默认直接切回直播模式
-                        layoutController.setVisibility(View.GONE);
-                        
-                        playChannel(c);
-
-                        if (c.getTvodUrl() != null) {
-                            updateCatchupList(c);
-                            listCatchup.setVisibility(View.VISIBLE);
-                        } else {
-                            listCatchup.setVisibility(View.GONE);
-                        }
-                        resetSidebarHideTimer();
-                        notifyDataSetChanged(); // 刷新高亮状态
-                    }
-                });
+                // 移除 onClickListener，依赖 ListView 的 onItemClickListener
             }
             return convertView;
         }
@@ -1775,22 +1757,6 @@ public class MainActivity extends AppCompatActivity {
                                   !prog.isLive && !currentCatchupProgram.isLive &&
                                   prog.beginTime.equals(currentCatchupProgram.beginTime)));
             tv.setSelected(isSelected);
-
-            // 触屏点击回看条目优化
-            convertView.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    if (prog.isLive) {
-                        isCatchupMode = false;
-                        layoutController.setVisibility(View.GONE);
-                        playChannel(currentChannel);
-                    } else {
-                        playCatchup(currentChannel, prog);
-                    }
-                    hideSidebar();
-                    notifyDataSetChanged();
-                }
-            });
 
             return convertView;
         }
