@@ -301,12 +301,16 @@ public class MainActivity extends AppCompatActivity {
             }
         });
         
-        if (playerView.isAvailable()) {
-            playSurface = new Surface(playerView.getSurfaceTexture());
-            if (pendingPlayUrl != null) {
-                String urlToPlay = pendingPlayUrl;
-                pendingPlayUrl = null;
-                startVideo(urlToPlay);
+        if (playerView.isAvailable() && playerView.getSurfaceTexture() != null) {
+            try {
+                playSurface = new Surface(playerView.getSurfaceTexture());
+                if (pendingPlayUrl != null) {
+                    String urlToPlay = pendingPlayUrl;
+                    pendingPlayUrl = null;
+                    startVideo(urlToPlay);
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Failed to create surface from TextureView", e);
             }
         }
         layoutSidebar = findViewById(R.id.layout_sidebar);
