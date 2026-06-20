@@ -130,6 +130,11 @@ public class MainActivity extends AppCompatActivity {
     private Runnable bufferTimeoutRunnable = null;    // 缓冲超时自动恢复任务
     private android.view.GestureDetector gestureDetector = null; // 手机触屏手势识别器
 
+    // 画面渲染与卡死检测变量
+    private long lastFrameRenderTime = 0;
+    private boolean isVideoRenderingStarted = false;
+    private String pendingPlayUrl = null;
+
     // 自动更新提示与进度控件
     private androidx.appcompat.app.AlertDialog progressDialog;
     private ProgressBar downloadProgressBar;
@@ -153,14 +158,27 @@ public class MainActivity extends AppCompatActivity {
     private final Runnable updateProgressAction = new Runnable() {
         @Override
         public void run() {
-            if (ijkPlayer != null && isCatchupMode && !isUserSeeking && tempSeekPosition == -1) {
-                long position = ijkPlayer.getCurrentPosition();
-                long duration = ijkPlayer.getDuration();
-                if (duration > 0) {
-                    int progress = (int) (position * 100 / duration);
-                    seekBar.setProgress(progress);
-                    textTimeCurrent.setText(formatTime(position));
-                    textTimeTotal.setText(formatTime(duration));
+            if (ijkPlayer != null) {
+                if (isCatchupMode && !isUserSeeking && tempSeekPosition == -1) {
+                    long position = ijkPlayer.getCurrentPosition();
+                    long duration = ijkPlayer.getDuration();
+                    if (duration > 0) {
+                        int progress = (int) (position * 100 / duration);
+                        seekBar.setProgress(progress);
+                        textTimeCurrent.setText(formatTime(position));
+                        textTimeTotal.setText(formatTime(duration));
+                    }
+                }
+                
+                // 画面卡死自愈检测：只有当开始渲染后，且不是在人为拖动 Seek 中
+                if (!isUserSeeking) {
+                    long now = System.currentTimeMillis();
+                    if (isVideoRenderingStarted && lastFrameRenderTime > 0 && (now - lastFrameRenderTime > 8000)) {
+                        Log.w(TAG, "检测到视频画面冻结已超过 8 秒，主动断开当前网络并触发换源自愈！");
+                        lastFrameRenderTime = now; // 避免在重试启动前重复触发
+                        isVideoRenderingStarted = false;
+                        handlePlayError();
+                    }
                 }
             }
             tvHandler.postDelayed(this, 1000);
@@ -246,8 +264,12 @@ public class MainActivity extends AppCompatActivity {
         playerView.setSurfaceTextureListener(new TextureView.SurfaceTextureListener() {
             @Override
             public void onSurfaceTextureAvailable(android.graphics.SurfaceTexture surfaceTexture, int width, int height) {
+                Log.i(TAG, "onSurfaceTextureAvailable triggered");
                 playSurface = new Surface(surfaceTexture);
-                if (ijkPlayer != null) {
+                if (pendingPlayUrl != null) {
+                    Log.i(TAG, "onSurfaceTextureAvailable: pendingPlayUrl found, starting delayed video: " + pendingPlayUrl);
+                    startVideo(pendingPlayUrl);
+                } else if (ijkPlayer != null) {
                     ijkPlayer.setSurface(playSurface);
                 }
             }
@@ -257,15 +279,24 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public boolean onSurfaceTextureDestroyed(android.graphics.SurfaceTexture surface) {
+                Log.i(TAG, "onSurfaceTextureDestroyed triggered");
                 if (playSurface != null) {
                     playSurface.release();
                     playSurface = null;
+                }
+                if (ijkPlayer != null) {
+                    ijkPlayer.setSurface(null);
                 }
                 return true;
             }
 
             @Override
-            public void onSurfaceTextureUpdated(android.graphics.SurfaceTexture surface) {}
+            public void onSurfaceTextureUpdated(android.graphics.SurfaceTexture surface) {
+                lastFrameRenderTime = System.currentTimeMillis();
+                if (!isVideoRenderingStarted) {
+                    isVideoRenderingStarted = true;
+                }
+            }
         });
         layoutSidebar = findViewById(R.id.layout_sidebar);
         listCategories = findViewById(R.id.list_categories);
@@ -896,6 +927,19 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        // 渲染检测状态重置
+        lastFrameRenderTime = System.currentTimeMillis();
+        isVideoRenderingStarted = false;
+
+        // 如果渲染 Surface 还未就绪 (例如正被销毁重绘)，则先排队，等待 Available 回调时启动播放
+        if (playSurface == null) {
+            Log.i(TAG, "startVideo: playSurface is null (possibly destroying/recreating), queueing url: " + url);
+            pendingPlayUrl = url;
+            return;
+        }
+
+        pendingPlayUrl = null; // 清除排队状态
+
         try {
             ijkPlayer = new IjkMediaPlayer();
 
@@ -929,11 +973,15 @@ public class MainActivity extends AppCompatActivity {
             ijkPlayer.setOption(IjkMediaPlayer.OPT_CATEGORY_FORMAT, "timeout", 8000000); // 设置连接/读取超时时间为 8 秒 (8000000 微秒)
             ijkPlayer.setOption(IjkMediaPlayer.OPT_CATEGORY_FORMAT, "reconnect", 1);     // 开启底层 HTTP/TCP 重连
 
+            // 极重要：在 prepare 之前绑定已就绪的稳定 Surface。老安卓系统 (API 16-22) 及 MediaCodec 必须在此刻获得 Surface 否则无法正常工作
+            ijkPlayer.setSurface(playSurface);
+
             // 监听：准备完成
             ijkPlayer.setOnPreparedListener(new IMediaPlayer.OnPreparedListener() {
                 @Override
                 public void onPrepared(IMediaPlayer mp) {
                     Log.i(TAG, "IjkPlayer onPrepared, start playing");
+                    // 双保险
                     if (playSurface != null) {
                         mp.setSurface(playSurface);
                     }
@@ -1573,15 +1621,28 @@ public class MainActivity extends AppCompatActivity {
         }
 
         @Override
-        public View getView(int position, View convertView, ViewGroup parent) {
+        public View getView(final int position, View convertView, ViewGroup parent) {
             if (convertView == null) {
                 convertView = LayoutInflater.from(MainActivity.this).inflate(R.layout.item_category, parent, false);
             }
             TextView tv = (TextView) convertView;
-            String cat = categories.get(position);
+            final String cat = categories.get(position);
             tv.setText(cat);
             
             tv.setSelected(cat.equals(currentCategory));
+
+            // 触屏直接点击分类优化
+            convertView.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    if (position >= 0 && position < categories.size()) {
+                        updateChannelList(categories.get(position));
+                    }
+                    listChannels.requestFocus();
+                    resetSidebarHideTimer();
+                }
+            });
+
             return convertView;
         }
     }
@@ -1605,14 +1666,14 @@ public class MainActivity extends AppCompatActivity {
         }
 
         @Override
-        public View getView(int position, View convertView, ViewGroup parent) {
+        public View getView(final int position, View convertView, ViewGroup parent) {
             if (convertView == null) {
                 convertView = LayoutInflater.from(MainActivity.this).inflate(R.layout.item_channel, parent, false);
             }
             
-            List<Channel> list = groupedChannels.get(currentCategory);
+            final List<Channel> list = groupedChannels.get(currentCategory);
             if (list != null && position >= 0 && position < list.size()) {
-                Channel c = list.get(position);
+                final Channel c = list.get(position);
                 TextView numTv = convertView.findViewById(R.id.text_channel_number);
                 TextView nameTv = convertView.findViewById(R.id.text_channel_name);
 
@@ -1652,6 +1713,26 @@ public class MainActivity extends AppCompatActivity {
                 }
 
                 convertView.setSelected(c == currentChannel);
+
+                // 触屏直接点击频道优化，解决第一下不响应、多下点击的Bug
+                convertView.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        isCatchupMode = false; // 触屏点台，默认直接切回直播模式
+                        layoutController.setVisibility(View.GONE);
+                        
+                        playChannel(c);
+
+                        if (c.getTvodUrl() != null) {
+                            updateCatchupList(c);
+                            listCatchup.setVisibility(View.VISIBLE);
+                        } else {
+                            listCatchup.setVisibility(View.GONE);
+                        }
+                        resetSidebarHideTimer();
+                        notifyDataSetChanged(); // 刷新高亮状态
+                    }
+                });
             }
             return convertView;
         }
@@ -1674,12 +1755,12 @@ public class MainActivity extends AppCompatActivity {
         }
 
         @Override
-        public View getView(int position, View convertView, ViewGroup parent) {
+        public View getView(final int position, View convertView, ViewGroup parent) {
             if (convertView == null) {
                 convertView = LayoutInflater.from(MainActivity.this).inflate(R.layout.item_category, parent, false);
             }
             TextView tv = (TextView) convertView;
-            CatchupProgram prog = catchupList.get(position);
+            final CatchupProgram prog = catchupList.get(position);
             tv.setText(prog.timeLabel);
             
             // 返回直播高亮亮金黄色
@@ -1694,6 +1775,23 @@ public class MainActivity extends AppCompatActivity {
                                   !prog.isLive && !currentCatchupProgram.isLive &&
                                   prog.beginTime.equals(currentCatchupProgram.beginTime)));
             tv.setSelected(isSelected);
+
+            // 触屏点击回看条目优化
+            convertView.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    if (prog.isLive) {
+                        isCatchupMode = false;
+                        layoutController.setVisibility(View.GONE);
+                        playChannel(currentChannel);
+                    } else {
+                        playCatchup(currentChannel, prog);
+                    }
+                    hideSidebar();
+                    notifyDataSetChanged();
+                }
+            });
+
             return convertView;
         }
     }
