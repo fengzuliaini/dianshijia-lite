@@ -29,6 +29,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.DianshijiaLite"
         android:usesCleartextTraffic="true"
+        android:extractNativeLibs="true"
         android:hardwareAccelerated="true"> <!-- 必须开启硬件加速以支持 TextureView 画面渲染 -->
 
         <activity

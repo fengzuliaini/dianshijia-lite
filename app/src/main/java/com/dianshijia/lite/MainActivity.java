@@ -232,7 +232,7 @@ public class MainActivity extends AppCompatActivity {
         try {
             proxyServer = new LocalProxyServer();
             proxyServer.start();
-        } catch (Exception e) {
+        } catch (Throwable e) {
             Log.e(TAG, "Failed to start local proxy server", e);
         }
 
@@ -1080,7 +1080,7 @@ public class MainActivity extends AppCompatActivity {
             ijkPlayer.setDataSource(url);
             ijkPlayer.prepareAsync();
 
-        } catch (Exception e) {
+        } catch (Throwable e) {
             Log.e(TAG, "IjkPlayer setup failed", e);
             runOnUiThread(new Runnable() {
                 @Override
@@ -1807,7 +1807,7 @@ public class MainActivity extends AppCompatActivity {
                     new TLSSocketFactory(sslContext.getSocketFactory())
                 );
                 Log.i(TAG, "Successfully enabled TLSv1.2 on legacy Android device");
-            } catch (Exception e) {
+            } catch (Throwable e) {
                 Log.e(TAG, "Failed to enable TLSv1.2", e);
             }
         }
