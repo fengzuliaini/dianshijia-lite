@@ -115,49 +115,43 @@ public class EpgParser {
     }
 
     private static void tryHttpFallback(final Context context, String url, final File cacheFile, final List<Channel> channels, final Runnable onComplete) {
-        if (url.startsWith("https://")) {
-            final String fallbackUrl = url.replace("https://", "http://");
-            Log.i(TAG, "HTTPS 下载失败，尝试降级到 HTTP 重新下载: " + fallbackUrl);
-            new Thread(new Runnable() {
-                @Override
-                public void run() {
-                    Request request = new Request.Builder().url(fallbackUrl).build();
-                    try {
-                        Response response = okHttpClient.newCall(request).execute();
-                        if (response.isSuccessful() && response.body() != null) {
-                            File tmpFile = new File(context.getCacheDir(), CACHE_FILE_NAME + ".tmp");
-                            InputStream is = response.body().byteStream();
-                            FileOutputStream fos = new FileOutputStream(tmpFile);
-                            byte[] buf = new byte[8192];
-                            int len;
-                            while ((len = is.read(buf)) != -1) {
-                                fos.write(buf, 0, len);
-                            }
-                            fos.flush();
-                            fos.close();
-                            is.close();
-
-                            if (tmpFile.renameTo(cacheFile)) {
-                                Log.i(TAG, "降级 HTTP 下载并缓存 EPG 成功，重新解析最新数据...");
-                                parseLocalCache(cacheFile, channels, onComplete);
-                                return; // 成功后直接返回，parseLocalCache 会触发 onComplete
-                            }
-                        } else {
-                            Log.e(TAG, "降级 HTTP 下载 EPG 失败，HTTP 错误码: " + response.code());
+        final String fallbackUrl = "https://epg.pw/xmltv/epg_CN.xml.gz";
+        Log.i(TAG, "主 EPG 源下载失败，尝试使用备选镜像重新下载: " + fallbackUrl);
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                Request request = new Request.Builder().url(fallbackUrl).build();
+                try {
+                    Response response = okHttpClient.newCall(request).execute();
+                    if (response.isSuccessful() && response.body() != null) {
+                        File tmpFile = new File(context.getCacheDir(), CACHE_FILE_NAME + ".tmp");
+                        InputStream is = response.body().byteStream();
+                        FileOutputStream fos = new FileOutputStream(tmpFile);
+                        byte[] buf = new byte[8192];
+                        int len;
+                        while ((len = is.read(buf)) != -1) {
+                            fos.write(buf, 0, len);
                         }
-                    } catch (Exception ex) {
-                        Log.e(TAG, "降级 HTTP 下载 EPG 抛出异常", ex);
+                        fos.flush();
+                        fos.close();
+                        is.close();
+
+                        if (tmpFile.renameTo(cacheFile)) {
+                            Log.i(TAG, "备选 EPG 镜像下载并缓存成功，重新解析最新数据...");
+                            parseLocalCache(cacheFile, channels, onComplete);
+                            return; // 成功后直接返回，parseLocalCache 会触发 onComplete
+                        }
+                    } else {
+                        Log.e(TAG, "备选 EPG 镜像下载失败，HTTP 错误码: " + response.code());
                     }
-                    if (onComplete != null) {
-                        new Handler(Looper.getMainLooper()).post(onComplete);
-                    }
+                } catch (Exception ex) {
+                    Log.e(TAG, "备选 EPG 镜像下载抛出异常", ex);
                 }
-            }).start();
-        } else {
-            if (onComplete != null) {
-                new Handler(Looper.getMainLooper()).post(onComplete);
+                if (onComplete != null) {
+                    new Handler(Looper.getMainLooper()).post(onComplete);
+                }
             }
-        }
+        }).start();
     }
 
     private static void doParseXml(InputStream is, List<Channel> channels) throws Exception {

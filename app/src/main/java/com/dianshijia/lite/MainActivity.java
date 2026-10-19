@@ -48,7 +48,7 @@ public class MainActivity extends AppCompatActivity {
     private static final String PREFS_NAME = "LiveTVPrefs";
     private static final String KEY_LAST_URL = "last_played_url";
     private static final String M3U_URL = "https://my.3223516.xyz/tv.m3u";
-    private static final String EPG_URL = "http://e.erw.cc/all.xml.gz";
+    private static final String EPG_URL = "http://epg.51zmt.top:8000/e.xml.gz";
     public static final String CATEGORY_FAVORITE = "我的收藏";
 
     // 自动隐藏及延时执行常量
