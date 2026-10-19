@@ -65,7 +65,23 @@ public class MainActivity extends AppCompatActivity {
     private View layoutSidebar;
     private ListView listCategories;
     private ListView listChannels;
-    private ListView listCatchup; // 第三列：回看节目单
+    private ListView listDates;   // 第三列：7天回看日期选择列表
+    private ListView listCatchup; // 第四列：回看节目单
+
+    // 7天回看日期实体类
+    public static class DateItem {
+        public String dateKey;     // 格式: yyyy-MM-dd
+        public String title;       // 标题: 今天 / 昨天 / 前天 / 周五
+        public String sub;         // 副标题: 10-19
+        public DateItem(String dateKey, String title, String sub) {
+            this.dateKey = dateKey;
+            this.title = title;
+            this.sub = sub;
+        }
+    }
+    private final List<DateItem> dateList = new ArrayList<>();
+    private String selectedDateKey = ""; // 当前选中的日期 key
+    private DateAdapter dateAdapter;
     
     private View layoutInfoOverlay;
     private TextView textOverlayNum;
@@ -134,6 +150,9 @@ public class MainActivity extends AppCompatActivity {
     private long lastFrameRenderTime = 0;
     private boolean isVideoRenderingStarted = false;
     private String pendingPlayUrl = null;
+    private String currentPlayingUrl = null; // 当前正在加载播放的视频源地址
+    private boolean isMediaCodecEnabled = true; // 是否开启 MediaCodec 硬件解码
+    private boolean hasAttemptedSoftwareFallback = false; // 当前流是否已尝试过软解降级
 
     // 自动更新提示与进度控件
     private androidx.appcompat.app.AlertDialog progressDialog;
@@ -303,6 +322,7 @@ public class MainActivity extends AppCompatActivity {
         layoutSidebar = findViewById(R.id.layout_sidebar);
         listCategories = findViewById(R.id.list_categories);
         listChannels = findViewById(R.id.list_channels);
+        listDates = findViewById(R.id.list_dates);
         listCatchup = findViewById(R.id.list_catchup);
         
         layoutInfoOverlay = findViewById(R.id.layout_info_overlay);
@@ -341,6 +361,9 @@ public class MainActivity extends AppCompatActivity {
 
         channelAdapter = new ChannelAdapter();
         listChannels.setAdapter(channelAdapter);
+
+        dateAdapter = new DateAdapter();
+        listDates.setAdapter(dateAdapter);
 
         catchupAdapter = new CatchupAdapter();
         listCatchup.setAdapter(catchupAdapter);
@@ -412,7 +435,8 @@ public class MainActivity extends AppCompatActivity {
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
                 if (position >= 0 && position < categories.size()) {
                     updateChannelList(categories.get(position));
-                    listCatchup.setVisibility(View.GONE); // 分类切换，先关闭第三列回看
+                    listDates.setVisibility(View.GONE);   // 分类切换，关闭第三列日期
+                    listCatchup.setVisibility(View.GONE); // 分类切换，关闭第四列回看
                     resetSidebarHideTimer();
                 }
             }
@@ -433,7 +457,7 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        // 频道列表触屏点按监听：点击后自动开启直播，并同步拉起该频道的历史回看备用列表
+        // 频道列表触屏点按监听：点击后自动开启直播，并同步拉起该频道的7天回看列表
         listChannels.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
@@ -445,12 +469,48 @@ public class MainActivity extends AppCompatActivity {
                     
                     playChannel(channel);
 
-                    if (channel.getTvodUrl() != null) {
-                        updateCatchupList(channel);
+                    if (channel.hasCatchupCapability() || !channel.getEpgPrograms().isEmpty()) {
+                        updateDatesAndCatchupList(channel);
+                        listDates.setVisibility(View.VISIBLE);
                         listCatchup.setVisibility(View.VISIBLE);
                     } else {
+                        listDates.setVisibility(View.GONE);
                         listCatchup.setVisibility(View.GONE);
                     }
+                    resetSidebarHideTimer();
+                }
+            }
+        });
+
+        // 第三列：7天回看日期选择联动（上下移动切换日期，第四列节目单实时联动过滤）
+        listDates.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                if (position >= 0 && position < dateList.size()) {
+                    selectedDateKey = dateList.get(position).dateKey;
+                    dateAdapter.notifyDataSetChanged();
+                    if (currentChannel != null) {
+                        loadCatchupForDate(currentChannel, selectedDateKey);
+                    }
+                    resetSidebarHideTimer();
+                }
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {}
+        });
+
+        // 第三列：点击日期项后直接让焦点进入第四列节目单
+        listDates.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                if (position >= 0 && position < dateList.size()) {
+                    selectedDateKey = dateList.get(position).dateKey;
+                    dateAdapter.notifyDataSetChanged();
+                    if (currentChannel != null) {
+                        loadCatchupForDate(currentChannel, selectedDateKey);
+                    }
+                    listCatchup.requestFocus();
                     resetSidebarHideTimer();
                 }
             }
@@ -800,6 +860,11 @@ public class MainActivity extends AppCompatActivity {
             tvHandler.removeCallbacks(retryPlayRunnable);
             retryPlayRunnable = null;
         }
+
+        // 新开播放时，重置软解降级状态，优先尝试硬解以兼顾流畅度
+        isMediaCodecEnabled = true;
+        hasAttemptedSoftwareFallback = false;
+
         currentChannel = channel;
         // 如果当前正好在“我的收藏”分类，且当前频道是已被收藏的，则保留在“我的收藏”分类下，不强行改为原始组
         if (CATEGORY_FAVORITE.equals(currentCategory) && channel.isFavorite()) {
@@ -850,15 +915,16 @@ public class MainActivity extends AppCompatActivity {
         isCatchupMode = true;
         currentCatchupProgram = program;
 
-        String tvodBaseUrl = channel.getTvodUrl();
-        if (tvodBaseUrl == null) {
+        // 回看模式同样重置软解降级状态
+        isMediaCodecEnabled = true;
+        hasAttemptedSoftwareFallback = false;
+
+        // 优先使用 Channel 智能构建的回看 URL (支持自定义模板与各类运营商协议)
+        String catchupUrl = channel.buildCatchupUrl(program);
+        if (catchupUrl == null) {
             Toast.makeText(this, "该频道暂无回看流信号", Toast.LENGTH_SHORT).show();
             return;
         }
-
-        // 拼接 IPTV TVOD playseek 回看协议参数：URL 末尾追加 playseek=开始时间-结束时间
-        String separator = tvodBaseUrl.contains("?") ? "&" : "?";
-        String catchupUrl = tvodBaseUrl + separator + "playseek=" + program.beginTime + "-" + program.endTime;
 
         catchupUrl = proxyUrlIfNeeded(catchupUrl);
         Log.i(TAG, "Playing catchup URL: " + catchupUrl);
@@ -879,6 +945,22 @@ public class MainActivity extends AppCompatActivity {
             public void run() {
                 // 安全释放当前出错的播放器
                 releaseIjkPlayer();
+
+                // 核心自愈机制：如果是硬解状态下出错，且尚未尝试软解，原地自动无缝切换至 FFmpeg 软解重试！
+                if (isMediaCodecEnabled && !hasAttemptedSoftwareFallback && currentPlayingUrl != null) {
+                    hasAttemptedSoftwareFallback = true;
+                    isMediaCodecEnabled = false;
+                    Log.w(TAG, "检测到当前源硬件解码异常，已自动无缝切换至 FFmpeg 软解引擎重试: " + currentPlayingUrl);
+                    layoutLoading.setVisibility(View.VISIBLE);
+                    textLoadingStatus.setText("硬件解码不兼容，正在切换纯软解...");
+                    tvHandler.postDelayed(new Runnable() {
+                        @Override
+                        public void run() {
+                            startVideo(currentPlayingUrl);
+                        }
+                    }, 500);
+                    return;
+                }
 
                 if (!isCatchupMode && currentChannel != null && currentChannel.getLiveUrls().size() > 1) {
                     layoutLoading.setVisibility(View.VISIBLE);
@@ -920,6 +1002,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void startVideo(final String url) {
         releaseIjkPlayer();
+        currentPlayingUrl = url;
 
         runOnUiThread(new Runnable() {
             @Override
@@ -945,35 +1028,51 @@ public class MainActivity extends AppCompatActivity {
         try {
             ijkPlayer = new IjkMediaPlayer();
 
-            // 启用 MediaCodec 硬解 (1为开启)；如硬解失败，ijkplayer 自动在底层无缝切换至 FFmpeg 软解，极富抗灾性
-            ijkPlayer.setOption(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "mediacodec", 1);
-            ijkPlayer.setOption(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "mediacodec-auto-rotate", 1);
-            ijkPlayer.setOption(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "mediacodec-handle-resolution-change", 1);
+            // 1. 软硬解码动态适配：优先尝试 MediaCodec 硬解；出错后自动降级至 FFmpeg 软解
+            if (isMediaCodecEnabled) {
+                ijkPlayer.setOption(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "mediacodec", 1);
+                ijkPlayer.setOption(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "mediacodec-auto-rotate", 1);
+                ijkPlayer.setOption(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "mediacodec-handle-resolution-change", 1);
+            } else {
+                ijkPlayer.setOption(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "mediacodec", 0);
+            }
 
-            // 禁用 OpenSL ES，改用系统兼容性最强的原生 AudioTrack 框架以适配老电视音频驱动
+            // 2. 音频驱动：禁用 OpenSL ES，改用老旧电视盒子兼容性最强的系统原生 AudioTrack 驱动
             ijkPlayer.setOption(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "opensles", 0);
             ijkPlayer.setOption(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "overlay-format", IjkMediaPlayer.SDL_FCC_RV32);
             
-            // 允许跳帧以防音视频不同步
+            // 允许跳帧以防音视频不同步，开启准备完毕即播放
             ijkPlayer.setOption(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "framedrop", 1);
             ijkPlayer.setOption(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "start-on-prepared", 1);
 
-            // 禁用 packet-buffering 缓冲区，取消多余网络缓存延迟，实现秒切换台
-            ijkPlayer.setOption(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "packet-buffering", 0);
+            // 3. 网络与缓冲自适应：
+            // 回看/时移模式：必须开启缓冲，保证 Seek 快速恢复并不卡顿
+            // 直播模式：开启适量小缓冲 (512KB)，既秒切秒播，又能抵抗网络抖动
+            if (isCatchupMode) {
+                ijkPlayer.setOption(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "packet-buffering", 1);
+                ijkPlayer.setOption(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "max-buffer-size", 1024 * 1024 * 10); // 10MB
+                ijkPlayer.setOption(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "soundtouch", 1); // 变音变速支持
+            } else {
+                ijkPlayer.setOption(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "packet-buffering", 1);
+                ijkPlayer.setOption(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "max-buffer-size", 1024 * 512); // 512KB 小缓冲抗抖动
+            }
 
-            // 针对 HLS (M3U8) 直播流进行播放探测优化
+            // 4. 解决高清流报参数解析失败的核心关键参数：提升探测大小和时长
             ijkPlayer.setOption(IjkMediaPlayer.OPT_CATEGORY_FORMAT, "http-detect-range-support", 0);
-            ijkPlayer.setOption(IjkMediaPlayer.OPT_CATEGORY_FORMAT, "analyzeduration", 1000000); // 1秒分析时长
-            ijkPlayer.setOption(IjkMediaPlayer.OPT_CATEGORY_FORMAT, "probesize", 1024 * 64);      // 64KB探测首包大小
+            ijkPlayer.setOption(IjkMediaPlayer.OPT_CATEGORY_FORMAT, "analyzeduration", 2500000); // 2.5秒分析时长
+            ijkPlayer.setOption(IjkMediaPlayer.OPT_CATEGORY_FORMAT, "probesize", 1024 * 512);      // 512KB 探测大小 (原 64KB 极易导致高清源解析参数失败)
             ijkPlayer.setOption(IjkMediaPlayer.OPT_CATEGORY_FORMAT, "flush_packets", 1);
+            ijkPlayer.setOption(IjkMediaPlayer.OPT_CATEGORY_FORMAT, "dns_cache_clear", 1);
 
             // 配置防盗链 User-Agent
             String userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/102.0.0.0 Safari/537.36";
             ijkPlayer.setOption(IjkMediaPlayer.OPT_CATEGORY_FORMAT, "user-agent", userAgent);
 
-            // 核心网络防卡死：设置连接和读取超时，超时会自动触发 onError
-            ijkPlayer.setOption(IjkMediaPlayer.OPT_CATEGORY_FORMAT, "timeout", 8000000); // 设置连接/读取超时时间为 8 秒 (8000000 微秒)
-            ijkPlayer.setOption(IjkMediaPlayer.OPT_CATEGORY_FORMAT, "reconnect", 1);     // 开启底层 HTTP/TCP 重连
+            // 核心网络防卡死：设置连接和读取超时为 10 秒，开启断线自动重连
+            ijkPlayer.setOption(IjkMediaPlayer.OPT_CATEGORY_FORMAT, "timeout", 10000000);
+            ijkPlayer.setOption(IjkMediaPlayer.OPT_CATEGORY_FORMAT, "reconnect", 1);
+            ijkPlayer.setOption(IjkMediaPlayer.OPT_CATEGORY_FORMAT, "reconnect_streamed", 1);
+            ijkPlayer.setOption(IjkMediaPlayer.OPT_CATEGORY_FORMAT, "reconnect_delay_max", 3);
 
             // 极重要：在 prepare 之前绑定已就绪的稳定 Surface。老安卓系统 (API 16-22) 及 MediaCodec 必须在此刻获得 Surface 否则无法正常工作
             ijkPlayer.setSurface(playSurface);
@@ -1132,76 +1231,142 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /**
-     * 自动推演生成频道最近 24 小时的虚拟节目单
+     * 生成过去 7 天的日期导航列表，并联动加载指定日期的节目清单 (对标 mytv-android 7天回看系统)
      */
-    private void updateCatchupList(Channel channel) {
+    private void updateDatesAndCatchupList(Channel channel) {
         if (channel == null) return;
-        catchupList.clear();
+        dateList.clear();
 
-        // 1. 新增第一项：“返回实时直播”的快捷触发键
-        CatchupProgram live = new CatchupProgram();
-        live.timeLabel = "[直播] 返回实时直播";
-        live.isLive = true;
-        catchupList.add(live);
+        long now = com.dianshijia.lite.util.OkHttpUtils.currentTimeMillis();
+        SimpleDateFormat sdfKey = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+        SimpleDateFormat sdfSub = new SimpleDateFormat("MM-dd", Locale.getDefault());
+        SimpleDateFormat sdfWeek = new SimpleDateFormat("E", Locale.CHINA);
 
-        // 2. 优先使用真实的 EPG 节目单
-        List<CatchupProgram> epgProgs = channel.getEpgPrograms();
-        if (epgProgs != null && !epgProgs.isEmpty()) {
-            long now = com.dianshijia.lite.util.OkHttpUtils.currentTimeMillis();
-            // 倒序加入列表，使最新播完的节目排在最前面
-            for (int i = epgProgs.size() - 1; i >= 0; i--) {
-                CatchupProgram prog = epgProgs.get(i);
-                // 仅限当前已开始播放的节目提供回看
-                if (prog.beginTimeMs <= now) {
-                    catchupList.add(prog);
+        Calendar cal = Calendar.getInstance();
+        for (int i = 0; i < 7; i++) {
+            cal.setTimeInMillis(now);
+            cal.add(Calendar.DAY_OF_YEAR, -i);
+            long time = cal.getTimeInMillis();
+            String key = sdfKey.format(new Date(time));
+            String sub = sdfSub.format(new Date(time));
+
+            String title;
+            if (i == 0) {
+                title = "今天";
+            } else if (i == 1) {
+                title = "昨天";
+            } else if (i == 2) {
+                title = "前天";
+            } else {
+                title = sdfWeek.format(new Date(time));
+            }
+
+            dateList.add(new DateItem(key, title, sub));
+        }
+
+        // 默认选中今天
+        if (selectedDateKey == null || selectedDateKey.isEmpty()) {
+            selectedDateKey = dateList.get(0).dateKey;
+        } else {
+            boolean found = false;
+            for (DateItem item : dateList) {
+                if (item.dateKey.equals(selectedDateKey)) {
+                    found = true;
+                    break;
                 }
             }
-        } else {
-            // 无 EPG 数据时，采用 24 小时虚拟节目单兜底
-            long now = com.dianshijia.lite.util.OkHttpUtils.currentTimeMillis();
-            SimpleDateFormat sdfLabel = new SimpleDateFormat("HH:mm", Locale.getDefault());
-            SimpleDateFormat sdfParam = new SimpleDateFormat("yyyyMMddHHmmss", Locale.getDefault());
-            SimpleDateFormat sdfDate = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+            if (!found) {
+                selectedDateKey = dateList.get(0).dateKey;
+            }
+        }
 
-            long timeBlock = 2 * 60 * 60 * 1000; // 2小时的毫秒数
-            
-            // 偶数小时对齐（如 16:30 对齐至 16:00 起）
-            Calendar cal = Calendar.getInstance();
-            cal.setTimeInMillis(now);
-            int hour = cal.get(Calendar.HOUR_OF_DAY);
-            int alignHour = (hour / 2) * 2;
-            cal.set(Calendar.HOUR_OF_DAY, alignHour);
-            cal.set(Calendar.MINUTE, 0);
-            cal.set(Calendar.SECOND, 0);
-            cal.set(Calendar.MILLISECOND, 0);
+        dateAdapter.notifyDataSetChanged();
+        loadCatchupForDate(channel, selectedDateKey);
+    }
 
-            long baseTime = cal.getTimeInMillis();
-            String todayStr = sdfDate.format(new Date(now));
+    /**
+     * 为指定日期加载节目单列表（包含真实 EPG 7天回看与无 EPG 时的 24小时时移虚拟推算）
+     */
+    private void loadCatchupForDate(Channel channel, String targetDateKey) {
+        if (channel == null || targetDateKey == null) return;
+        catchupList.clear();
 
-            for (int i = 0; i < 12; i++) {
-                long start = baseTime - i * timeBlock;
-                long end = start + timeBlock;
+        long now = com.dianshijia.lite.util.OkHttpUtils.currentTimeMillis();
+        SimpleDateFormat sdfDate = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+        String todayKey = sdfDate.format(new Date(now));
+        boolean isToday = targetDateKey.equals(todayKey);
 
-                // 越过未来的时间段
-                if (start > now) {
-                    continue;
+        // 如果是“今天”，第一项放“【直播】返回实时直播”
+        if (isToday) {
+            CatchupProgram live = new CatchupProgram();
+            live.timeLabel = "[直播] 返回实时直播";
+            live.isLive = true;
+            catchupList.add(live);
+        }
+
+        List<CatchupProgram> epgProgs = channel.getEpgPrograms();
+        List<CatchupProgram> matchedList = new ArrayList<>();
+
+        if (epgProgs != null && !epgProgs.isEmpty()) {
+            for (CatchupProgram prog : epgProgs) {
+                if (targetDateKey.equals(prog.dateKey)) {
+                    matchedList.add(prog);
                 }
+            }
+        }
 
-                CatchupProgram p = new CatchupProgram();
-                String dateStr = sdfDate.format(new Date(start));
-                String dayLabel = dateStr.equals(todayStr) ? "今天" : "昨天";
+        if (!matchedList.isEmpty()) {
+            // 倒序展示：当天的最新播完节目排在前面，方便用户快速查看刚刚播完的节目
+            for (int i = matchedList.size() - 1; i >= 0; i--) {
+                catchupList.add(matchedList.get(i));
+            }
+        } else {
+            // 无 EPG 数据时，采用该日期对应的 24 小时虚拟节目单兜底 (按 2 小时为一段，共 12 个时段)
+            try {
+                SimpleDateFormat sdfParam = new SimpleDateFormat("yyyyMMddHHmmss", Locale.getDefault());
+                SimpleDateFormat sdfLabel = new SimpleDateFormat("HH:mm", Locale.getDefault());
 
-                p.timeLabel = dayLabel + " " + sdfLabel.format(new Date(start)) + " - " + sdfLabel.format(new Date(end));
-                p.beginTime = sdfParam.format(new Date(start));
-                p.endTime = sdfParam.format(new Date(end));
-                p.beginTimeMs = start;
-                p.endTimeMs = end;
-                p.isLive = false;
-                catchupList.add(p);
+                Date dateObj = sdfDate.parse(targetDateKey);
+                Calendar cal = Calendar.getInstance();
+                cal.setTime(dateObj != null ? dateObj : new Date(now));
+                cal.set(Calendar.HOUR_OF_DAY, 0);
+                cal.set(Calendar.MINUTE, 0);
+                cal.set(Calendar.SECOND, 0);
+                cal.set(Calendar.MILLISECOND, 0);
+
+                long dayStart = cal.getTimeInMillis();
+                long blockMs = 2 * 3600 * 1000L; // 2小时
+
+                // 倒序加入：从 22:00-24:00 往前至 00:00-02:00
+                for (int i = 11; i >= 0; i--) {
+                    long start = dayStart + i * blockMs;
+                    long end = start + blockMs;
+
+                    // 如果选的是今天，越过未来的时间段
+                    if (isToday && start > now) {
+                        continue;
+                    }
+
+                    CatchupProgram p = new CatchupProgram();
+                    p.timeLabel = sdfLabel.format(new Date(start)) + " - " + sdfLabel.format(new Date(end));
+                    p.beginTime = sdfParam.format(new Date(start));
+                    p.endTime = sdfParam.format(new Date(end));
+                    p.beginTimeMs = start;
+                    p.endTimeMs = end;
+                    p.isLive = false;
+                    p.dateKey = targetDateKey;
+                    catchupList.add(p);
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Generate virtual catchup failed", e);
             }
         }
 
         catchupAdapter.notifyDataSetChanged();
+    }
+
+    private void updateCatchupList(Channel channel) {
+        updateDatesAndCatchupList(channel);
     }
 
     // ==========================================
@@ -1213,7 +1378,8 @@ public class MainActivity extends AppCompatActivity {
         isSidebarShowing = true;
         layoutSidebar.setVisibility(View.VISIBLE);
         
-        // 打开侧边栏菜单时，默认隐藏回看列表，直到用户按右键拉出
+        // 打开侧边栏菜单时，默认隐藏回看日期和节目单，直到用户按右键拉出
+        listDates.setVisibility(View.GONE);
         listCatchup.setVisibility(View.GONE);
 
         if (!categories.isEmpty()) {
@@ -1247,6 +1413,8 @@ public class MainActivity extends AppCompatActivity {
         if (!isSidebarShowing) return;
         isSidebarShowing = false;
         layoutSidebar.setVisibility(View.GONE);
+        listDates.setVisibility(View.GONE);
+        listCatchup.setVisibility(View.GONE);
 
         tvHandler.removeMessages(MSG_HIDE_SIDEBAR);
     }
@@ -1440,12 +1608,17 @@ public class MainActivity extends AppCompatActivity {
             case KeyEvent.KEYCODE_DPAD_LEFT:
                 if (isSidebarShowing) {
                     if (listCatchup.hasFocus()) {
-                        // 回看列表向左：回到频道列表并收起回看列表
+                        // 第四列（节目单）向左：退回到第三列（7天日期）
+                        listDates.requestFocus();
+                        return true;
+                    } else if (listDates.hasFocus()) {
+                        // 第三列（7天日期）向左：关闭日期和节目单列，退回第二列（频道列表）
+                        listDates.setVisibility(View.GONE);
                         listCatchup.setVisibility(View.GONE);
                         listChannels.requestFocus();
                         return true;
                     } else if (listChannels.hasFocus()) {
-                        // 频道列表向左：回到分类列表
+                        // 第二列（频道列表）向左：回到第一列（分类列表）
                         listCategories.requestFocus();
                         return true;
                     }
@@ -1462,15 +1635,22 @@ public class MainActivity extends AppCompatActivity {
                         listChannels.requestFocus();
                         return true;
                     } else if (listChannels.hasFocus()) {
-                        // 频道列表向右：拉出回看节目单并进入焦点
-                        if (currentChannel != null && (!currentChannel.getEpgPrograms().isEmpty() || currentChannel.getTvodUrl() != null)) {
-                            // 确保在拉出时刷新节目单
-                            updateCatchupList(currentChannel);
+                        // 频道列表向右：拉出7天回看日期与节目单，焦点进入第三列（日期）
+                        if (currentChannel != null && (!currentChannel.getEpgPrograms().isEmpty() || currentChannel.hasCatchupCapability())) {
+                            updateDatesAndCatchupList(currentChannel);
+                            listDates.setVisibility(View.VISIBLE);
                             listCatchup.setVisibility(View.VISIBLE);
-                            listCatchup.requestFocus();
-                            listCatchup.setSelection(0); // 默认高亮“返回直播”项
+                            listDates.requestFocus();
+                            listDates.setSelection(0); // 默认高亮“今天”
                         } else {
                             Toast.makeText(this, "该频道暂无回看节目单", Toast.LENGTH_SHORT).show();
+                        }
+                        return true;
+                    } else if (listDates.hasFocus()) {
+                        // 第三列（日期）向右：进入第四列（节目单）
+                        listCatchup.requestFocus();
+                        if (catchupList.size() > 0) {
+                            listCatchup.setSelection(0);
                         }
                         return true;
                     }
@@ -1488,10 +1668,13 @@ public class MainActivity extends AppCompatActivity {
                     layoutNumberInput.setVisibility(View.GONE);
                     return true;
                 }
-                // 2. 如果侧边栏处于显示状态
+                // 2. 如果侧边栏处于显示状态，自内向外逐层关闭退回
                 if (isSidebarShowing) {
-                    // 若第三列（回看单）聚焦，按返回键仅关闭第三列并退回到第二列（频道列表）
                     if (listCatchup.getVisibility() == View.VISIBLE && listCatchup.hasFocus()) {
+                        listDates.requestFocus();
+                        return true;
+                    } else if (listDates.getVisibility() == View.VISIBLE && listDates.hasFocus()) {
+                        listDates.setVisibility(View.GONE);
                         listCatchup.setVisibility(View.GONE);
                         listChannels.requestFocus();
                         return true;
@@ -1576,7 +1759,12 @@ public class MainActivity extends AppCompatActivity {
 
     private static String getProxyUrl(String originalUrl, int port) {
         if (originalUrl == null) return null;
-        String encodedUrl = android.net.Uri.encode(originalUrl);
+        String encodedUrl;
+        try {
+            encodedUrl = java.net.URLEncoder.encode(originalUrl, "UTF-8");
+        } catch (Exception e) {
+            encodedUrl = android.net.Uri.encode(originalUrl);
+        }
         String ext = "";
         int questionMark = originalUrl.indexOf('?');
         String pathOnly = (questionMark != -1) ? originalUrl.substring(0, questionMark) : originalUrl;
@@ -1725,10 +1913,12 @@ public class MainActivity extends AppCompatActivity {
                         
                         playChannel(c);
 
-                        if (c.getTvodUrl() != null) {
-                            updateCatchupList(c);
+                        if (c.hasCatchupCapability() || !c.getEpgPrograms().isEmpty()) {
+                            updateDatesAndCatchupList(c);
+                            listDates.setVisibility(View.VISIBLE);
                             listCatchup.setVisibility(View.VISIBLE);
                         } else {
+                            listDates.setVisibility(View.GONE);
                             listCatchup.setVisibility(View.GONE);
                         }
                         resetSidebarHideTimer();
@@ -1736,6 +1926,60 @@ public class MainActivity extends AppCompatActivity {
                     }
                 });
             }
+            return convertView;
+        }
+    }
+
+    private class DateAdapter extends BaseAdapter {
+        @Override
+        public int getCount() {
+            return dateList.size();
+        }
+
+        @Override
+        public Object getItem(int position) {
+            return dateList.get(position);
+        }
+
+        @Override
+        public long getItemId(int position) {
+            return position;
+        }
+
+        @Override
+        public View getView(final int position, View convertView, ViewGroup parent) {
+            if (convertView == null) {
+                convertView = LayoutInflater.from(MainActivity.this).inflate(R.layout.item_date, parent, false);
+            }
+            final DateItem item = dateList.get(position);
+            TextView textTitle = convertView.findViewById(R.id.text_date_title);
+            TextView textSub = convertView.findViewById(R.id.text_date_sub);
+
+            textTitle.setText(item.title);
+            textSub.setText(item.sub);
+
+            boolean isSelected = item.dateKey.equals(selectedDateKey);
+            convertView.setSelected(isSelected);
+
+            if (isSelected) {
+                textTitle.setTextColor(getResources().getColor(R.color.accent_gold));
+            } else {
+                textTitle.setTextColor(getResources().getColor(R.color.white));
+            }
+
+            convertView.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    selectedDateKey = item.dateKey;
+                    notifyDataSetChanged();
+                    if (currentChannel != null) {
+                        loadCatchupForDate(currentChannel, selectedDateKey);
+                    }
+                    listCatchup.requestFocus();
+                    resetSidebarHideTimer();
+                }
+            });
+
             return convertView;
         }
     }
@@ -1763,11 +2007,21 @@ public class MainActivity extends AppCompatActivity {
             }
             TextView tv = (TextView) convertView;
             final CatchupProgram prog = catchupList.get(position);
-            tv.setText(prog.timeLabel);
             
-            // 返回直播高亮亮金黄色
+            String displayText = prog.timeLabel;
+            if (prog.programName != null && !prog.programName.trim().isEmpty()) {
+                displayText = prog.timeLabel + "  " + prog.programName.trim();
+            }
+            tv.setText(displayText);
+            
+            long now = com.dianshijia.lite.util.OkHttpUtils.currentTimeMillis();
+            boolean isFuture = !prog.isLive && prog.beginTimeMs > now;
+
+            // 返回直播高亮亮金黄色；未来节目半透明变灰；常规回看白色
             if (prog.isLive) {
                 tv.setTextColor(getResources().getColor(R.color.accent_gold));
+            } else if (isFuture) {
+                tv.setTextColor(android.graphics.Color.parseColor("#70FFFFFF"));
             } else {
                 tv.setTextColor(getResources().getColor(R.color.white));
             }
@@ -1786,9 +2040,18 @@ public class MainActivity extends AppCompatActivity {
                         isCatchupMode = false;
                         layoutController.setVisibility(View.GONE);
                         playChannel(currentChannel);
-                    } else {
-                        playCatchup(currentChannel, prog);
+                        hideSidebar();
+                        notifyDataSetChanged();
+                        return;
                     }
+
+                    long currentTime = com.dianshijia.lite.util.OkHttpUtils.currentTimeMillis();
+                    if (prog.beginTimeMs > currentTime) {
+                        Toast.makeText(MainActivity.this, "该节目尚未播出，暂无法回看", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+
+                    playCatchup(currentChannel, prog);
                     hideSidebar();
                     notifyDataSetChanged();
                 }
@@ -1868,6 +2131,7 @@ public class MainActivity extends AppCompatActivity {
         private int port = 0;
         private boolean isRunning = false;
         private final okhttp3.OkHttpClient okHttpClient;
+        private java.util.concurrent.ExecutorService threadPool;
 
         public LocalProxyServer() {
             okhttp3.OkHttpClient.Builder builder = new okhttp3.OkHttpClient.Builder()
@@ -1919,6 +2183,8 @@ public class MainActivity extends AppCompatActivity {
             serverSocket = new java.net.ServerSocket(0);
             port = serverSocket.getLocalPort();
             isRunning = true;
+            // 使用定长线程池复用工作线程，杜绝老盒子上频繁创建线程引发的 OOM
+            threadPool = java.util.concurrent.Executors.newFixedThreadPool(10);
             
             new Thread(new Runnable() {
                 @Override
@@ -1926,12 +2192,14 @@ public class MainActivity extends AppCompatActivity {
                     while (isRunning) {
                         try {
                             final java.net.Socket clientSocket = serverSocket.accept();
-                            new Thread(new Runnable() {
-                                @Override
-                                public void run() {
-                                    handleRequest(clientSocket);
-                                }
-                            }).start();
+                            if (threadPool != null && !threadPool.isShutdown()) {
+                                threadPool.execute(new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        handleRequest(clientSocket);
+                                    }
+                                });
+                            }
                         } catch (java.io.IOException ignored) {}
                     }
                 }
@@ -1949,6 +2217,12 @@ public class MainActivity extends AppCompatActivity {
 
         public void stop() {
             isRunning = false;
+            if (threadPool != null) {
+                try {
+                    threadPool.shutdownNow();
+                } catch (Exception ignored) {}
+                threadPool = null;
+            }
             if (serverSocket != null) {
                 try {
                     serverSocket.close();
@@ -1957,14 +2231,10 @@ public class MainActivity extends AppCompatActivity {
         }
 
         /**
-         * V1.3.0: 逐行解析 M3U8 内容，对每一行非注释 URL 行进行代理改写。
-         * 同时支持绝对路径 (http:// / https://) 和相对路径 (如 segment.ts?xxx)。
-         * @param content M3U8 原始文本
-         * @param localPort 本地代理端口
-         * @param finalBaseUrl OkHttp 跟随 302 重定向后的最终 URL，用于解析相对路径
+         * 逐行解析 M3U8 内容，对非注释 URL 行及 #EXT-X-KEY 加密行进行代理改写。
+         * 同时支持绝对路径与相对路径拼接。
          */
         private String rewriteM3u8Content(String content, int localPort, String finalBaseUrl) {
-            // 计算 base URL (去掉最后一个 / 之后的文件名部分)
             String baseUrl = "";
             if (finalBaseUrl != null) {
                 int lastSlash = finalBaseUrl.lastIndexOf('/');
@@ -1976,6 +2246,8 @@ public class MainActivity extends AppCompatActivity {
             String[] lines = content.split("\n");
             StringBuilder sb = new StringBuilder();
             boolean skipNextLine = false;
+            java.util.regex.Pattern keyPattern = java.util.regex.Pattern.compile("(#EXT-X-KEY:[^\n]*?URI=\")([^\"]+)(\"[^\n]*)");
+
             for (String line : lines) {
                 String trimmed = line.trim();
                 
@@ -1987,16 +2259,31 @@ public class MainActivity extends AppCompatActivity {
                 if (trimmed.isEmpty()) {
                     sb.append(line).append("\n");
                 } else if (trimmed.startsWith("#")) {
-                    // 如果在 API <= 22 设备上，发现自适应流包含 hev1/hvc1/h265，则过滤该流
+                    // 1. 如果在老旧设备上，过滤 H.265 自适应流，优先保留 H.264
                     if (trimmed.startsWith("#EXT-X-STREAM-INF:")) {
                         boolean isH265 = trimmed.toLowerCase(Locale.US).contains("hev1") ||
                                          trimmed.toLowerCase(Locale.US).contains("hvc1") ||
                                          trimmed.toLowerCase(Locale.US).contains("h265");
                         if (isH265 && android.os.Build.VERSION.SDK_INT <= 22) {
-                            skipNextLine = true; // 下一行 URL 需过滤
+                            skipNextLine = true;
                             continue;
                         }
                     }
+
+                    // 2. 关键修复：改写 #EXT-X-KEY 中的加密密钥 URI，解决 AES-128 等加密流黑屏无法播放问题
+                    if (trimmed.startsWith("#EXT-X-KEY:")) {
+                        java.util.regex.Matcher keyMatcher = keyPattern.matcher(trimmed);
+                        if (keyMatcher.find()) {
+                            String prefix = keyMatcher.group(1);
+                            String keyUri = keyMatcher.group(2);
+                            String suffix = keyMatcher.group(3);
+                            String absoluteKeyUrl = (keyUri.startsWith("http://") || keyUri.startsWith("https://")) ? keyUri : baseUrl + keyUri;
+                            String proxyKeyUrl = getProxyUrl(absoluteKeyUrl, localPort);
+                            sb.append(prefix).append(proxyKeyUrl).append(suffix).append("\n");
+                            continue;
+                        }
+                    }
+
                     sb.append(line).append("\n");
                 } else {
                     // URL 行：可能是绝对路径或相对路径
@@ -2004,10 +2291,8 @@ public class MainActivity extends AppCompatActivity {
                     if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
                         absoluteUrl = trimmed;
                     } else {
-                        // 相对路径，基于最终重定向 URL 拼接
                         absoluteUrl = baseUrl + trimmed;
                     }
-                    // 改写为本地代理地址
                     String proxyUrl = getProxyUrl(absoluteUrl, localPort);
                     sb.append(proxyUrl).append("\n");
                 }
@@ -2035,13 +2320,19 @@ public class MainActivity extends AppCompatActivity {
                     return;
                 }
 
-                String targetUrl = android.net.Uri.decode(path.substring(urlIndex + 4));
+                String rawUrl = path.substring(urlIndex + 4);
+                String targetUrl;
+                try {
+                    targetUrl = java.net.URLDecoder.decode(rawUrl, "UTF-8");
+                } catch (Exception e) {
+                    targetUrl = android.net.Uri.decode(rawUrl);
+                }
                 Log.d("LocalProxyServer", "Proxying request for: " + targetUrl);
 
                 okhttp3.Request.Builder requestBuilder = new okhttp3.Request.Builder()
                         .url(targetUrl);
 
-                // 读取客户端发来的 Headers，排除 Host 后透传给远端服务器，解决防盗链与拉流参数兼容问题
+                // 读取客户端发来的 Headers，排除 Host 后透传给远端服务器，支持 Range/防盗链等
                 String headerLine;
                 while ((headerLine = in.readLine()) != null && !headerLine.trim().isEmpty()) {
                     int colonIndex = headerLine.indexOf(':');
@@ -2064,9 +2355,8 @@ public class MainActivity extends AppCompatActivity {
 
                 okhttp3.Response response = okHttpClient.newCall(request).execute();
 
-                // V1.3.0: 获取 OkHttp 跟随 302 重定向后的最终 URL，用于 M3U8 相对路径的 base 拼接
+                // 获取 OkHttp 跟随 302 重定向后的最终 URL
                 String finalUrl = response.request().url().toString();
-                Log.d("LocalProxyServer", "Final URL after redirects: " + finalUrl);
                 
                 String message = response.message();
                 if (message == null || message.trim().isEmpty()) {
@@ -2074,9 +2364,9 @@ public class MainActivity extends AppCompatActivity {
                 }
                 String statusLine = "HTTP/1.1 " + response.code() + " " + message + "\r\n";
                 out.write(statusLine.getBytes());
-                out.write("Connection: close\r\n".getBytes()); // 增加 Connection: close 强制关闭连接
+                out.write("Connection: close\r\n".getBytes());
 
-                // 透传远端响应的 Headers（如 Set-Cookie）给客户端，以支持防盗链会话校验
+                // 透传远端响应的 Headers（如 Set-Cookie, Content-Range 等）给客户端
                 for (int i = 0; i < response.headers().size(); i++) {
                     String name = response.headers().name(i);
                     String value = response.headers().value(i);
@@ -2098,9 +2388,7 @@ public class MainActivity extends AppCompatActivity {
                                  (contentType != null && (contentType.toString().contains("mpegurl") || contentType.toString().contains("mpegURL")));
 
                 if (isM3u8 && response.body() != null) {
-                    // 读取 M3U8 的全部文本
                     String m3u8Content = response.body().string();
-                    // V1.3.0 核心：使用最终 URL 作为 base，逐行改写所有 URL（含相对路径）为本地代理地址
                     String rewrittenContent = rewriteM3u8Content(m3u8Content, port, finalUrl);
                     
                     byte[] m3u8Bytes = rewrittenContent.getBytes("UTF-8");
@@ -2110,7 +2398,6 @@ public class MainActivity extends AppCompatActivity {
                     out.write(m3u8Bytes);
                     out.flush();
                 } else {
-                    // 视频 TS 分片或普通媒体二进制流，以极速、零内存占用的二进制 Pipe 方式回吐数据
                     if (contentType != null) {
                         out.write(("Content-Type: " + contentType.toString() + "\r\n").getBytes());
                     }

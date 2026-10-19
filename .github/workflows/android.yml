@@ -18,10 +18,11 @@ jobs:
     - name: Checkout Code
       uses: actions/checkout@v4
 
-    - name: Set up pre-installed JDK 11
-      run: |
-        echo "JAVA_HOME=$JAVA_HOME_11_X64" >> $GITHUB_ENV
-        echo "$JAVA_HOME_11_X64/bin" >> $GITHUB_PATH
+    - name: Set up JDK 11
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '11'
  
     - name: Download and set up Gradle 7.4
       run: |
@@ -59,14 +60,14 @@ jobs:
       run: |
         VERSION_CODE=$(grep -E 'versionCode\s+' app/build.gradle | awk '{print $2}')
         VERSION_NAME=$(grep -E 'versionName\s+' app/build.gradle | awk '{print $2}' | tr -d '"')
-        if [ -z "$VERSION_CODE" ]; then VERSION_CODE="1"; fi
-        if [ -z "$VERSION_NAME" ]; then VERSION_NAME="1.0.0"; fi
+        if [ -z "$VERSION_CODE" ]; then VERSION_CODE="19"; fi
+        if [ -z "$VERSION_NAME" ]; then VERSION_NAME="1.6.0"; fi
         echo "{" > update.json
         echo "  \"versionCode\": $VERSION_CODE," >> update.json
         echo "  \"versionName\": \"$VERSION_NAME\"," >> update.json
         echo "  \"apkUrl\": \"https://my.3223516.xyz/dianshijia-lite.apk\"," >> update.json
         echo "  \"apkUrl64\": \"https://my.3223516.xyz/dianshijia-lite.apk\"," >> update.json
-        echo "  \"updateMessage\": \"发现新版本 $VERSION_NAME ($VERSION_CODE)！\\\n【本次核心优化与修复】：\\\n1. 修复手机上切换频道按第一下提示『正在连接信号源』卡死的 Bug；\\\n2. 增加手机滑动手势：屏幕左右滑动换源（切换线路），上下滑动换台，交互极佳；\\\n3. 侧边栏当前频道列表右侧新增金色快捷『换源』触控按钮，一键切源更直观；\\\n4. 原生适配 64 位手机系统并整合 32/64 位 CPU 架构（电视盒子运行 32 位模式，手机原生 64 位运行，彻底解决 64 位闪退问题）；\\\n5. 彻底修复直播播放卡顿卡死问题，引入底层超时及 8 秒卡顿缓冲上层超时自动换线/重试自愈机制！\"" >> update.json
+        echo "  \"updateMessage\": \"发现新版本 $VERSION_NAME ($VERSION_CODE)！\\\n【本次核心优化与功能】：\\\n1. 【全新7天回看节目单系统】：参考 mytv-android 深度重构，支持在侧边栏按 7 天日期（今天/昨天/前天/大前天...）分类浏览全量节目单与一键时移播放；\\\n2. 【无EPG全时段虚拟推算】：未提供 XML 节目单的频道自动自适应生成 24 小时时移段，实现全频道 7 天 24 小时无死角回看；\\\n3. 【M3U 标准回看协议适配】：全面兼容 catchup/catchup-source 模板变量自动替换及三大运营商 PLTV/TVOD 协议；\\\n4. 【硬件解码崩溃自愈】：新增硬解失败自动无缝降级为内置 FFmpeg 纯软解重试机制，彻底消灭老旧机顶盒黑屏闪退；\\\n5. 【播放器探测与代理增强】：探测包由 64KB 扩充至 512KB 解决高清流参数丢失，修复本地代理漏掉 AES-128 加密密钥的问题！\"" >> update.json
         echo "}" >> update.json
         cp app/build/outputs/apk/debug/app-debug.apk dianshijia-lite.apk
 

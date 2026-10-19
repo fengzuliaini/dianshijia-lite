@@ -11,4 +11,5 @@
 .cxx
 /app/build
 /DianshijiaLite-Debug-APK
+*.apk
 

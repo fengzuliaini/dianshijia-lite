@@ -13,7 +13,7 @@
         android:clickable="true"
         android:focusable="true" />
 
-    <!-- 侧边栏选择菜单：包含分类列表、频道列表、回看时段列表 -->
+    <!-- 侧边栏选择菜单：包含分类列表、频道列表、7天日期列表、回看节目单列表 -->
     <LinearLayout
         android:id="@+id/layout_sidebar"
         android:layout_width="wrap_content"
@@ -25,7 +25,7 @@
         <!-- 第一列：分类列表 -->
         <ListView
             android:id="@+id/list_categories"
-            android:layout_width="140dp"
+            android:layout_width="130dp"
             android:layout_height="match_parent"
             android:background="@color/bg_sidebar"
             android:divider="@null"
@@ -35,17 +35,28 @@
         <!-- 第二列：具体频道列表 -->
         <ListView
             android:id="@+id/list_channels"
-            android:layout_width="240dp"
+            android:layout_width="210dp"
             android:layout_height="match_parent"
             android:background="@color/bg_sidebar_sub"
             android:divider="@null"
             android:scrollbars="none"
             android:choiceMode="singleChoice" />
 
-        <!-- 第三列：回看时段列表 (初始隐藏，遥控按右或触屏呼出) -->
+        <!-- 第三列：7天回看日期列表 (包含今天、昨天、前天等7天) -->
+        <ListView
+            android:id="@+id/list_dates"
+            android:layout_width="110dp"
+            android:layout_height="match_parent"
+            android:background="#E6222224"
+            android:divider="@null"
+            android:scrollbars="none"
+            android:choiceMode="singleChoice"
+            android:visibility="gone" />
+
+        <!-- 第四列：回看节目单列表 (某一日期的所有节目清单) -->
         <ListView
             android:id="@+id/list_catchup"
-            android:layout_width="180dp"
+            android:layout_width="260dp"
             android:layout_height="match_parent"
             android:background="#E62C2C2E"
             android:divider="@null"

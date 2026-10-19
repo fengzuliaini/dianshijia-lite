@@ -183,6 +183,8 @@ public class EpgParser {
 
         SimpleDateFormat sdfTime = new SimpleDateFormat("HH:mm", Locale.getDefault());
         SimpleDateFormat sdfDay = new SimpleDateFormat("MM-dd", Locale.getDefault());
+        SimpleDateFormat sdfDateKey = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+        SimpleDateFormat sdfWeek = new SimpleDateFormat("E", Locale.CHINA);
 
         Calendar calNow = Calendar.getInstance();
         calNow.setTimeInMillis(now);
@@ -231,6 +233,7 @@ public class EpgParser {
                                     currentProgram.beginTimeMs = startTimeMs;
                                     currentProgram.endTimeMs = endTimeMs;
                                     currentProgram.isLive = false;
+                                    currentProgram.dateKey = sdfDateKey.format(startDate);
 
                                     calDate.setTime(startDate);
                                     int pYear = calDate.get(Calendar.YEAR);
@@ -244,10 +247,11 @@ public class EpgParser {
                                     } else if (pYear == beforeYesYear && pDay == beforeYesDay) {
                                         dayLabel = "前天";
                                     } else {
-                                        dayLabel = sdfDay.format(startDate);
+                                        dayLabel = sdfWeek.format(startDate);
                                     }
 
-                                    currentProgram.timeLabel = dayLabel + " " + sdfTime.format(startDate) + " - " + sdfTime.format(endDate);
+                                    currentProgram.dateDisplay = dayLabel + " " + sdfDay.format(startDate);
+                                    currentProgram.timeLabel = sdfTime.format(startDate) + " - " + sdfTime.format(endDate);
                                 } catch (Exception e) {
                                     currentProgram = null;
                                 }
@@ -313,6 +317,15 @@ public class EpgParser {
                                            Map<String, Channel> epgIdToChannelMap,
                                            List<Channel> channels) {
         for (Channel c : channels) {
+            // 1. 如果频道本身从 M3U 解析出了 tvg-id/tvg-name，优先直接绑定
+            if (c.getEpgId() != null && !c.getEpgId().isEmpty()) {
+                if (epgChannelId.equalsIgnoreCase(c.getEpgId())) {
+                    epgIdToChannelMap.put(epgChannelId, c);
+                    continue;
+                }
+            }
+
+            // 2. 名称精确与正规化模糊匹配
             String nameLower = c.getName().toLowerCase();
             String nameNorm = normalizeChannelName(c.getName());
 
@@ -336,10 +349,17 @@ public class EpgParser {
                    .replaceAll("-", "")
                    .replaceAll("综合", "")
                    .replaceAll("频道", "")
-                   .replaceAll("高清", "")
+                   .replaceAll("超高清", "")
                    .replaceAll("超清", "")
-                   .replaceAll("\\[.*\\]", "")
-                   .replaceAll("\\(.*\\)", "");
+                   .replaceAll("高清", "")
+                   .replaceAll("标清", "")
+                   .replaceAll("\\[.*?\\]", "")
+                   .replaceAll("\\(.*?\\)", "")
+                   .replaceAll("（.*?）", "")
+                   .replaceAll("\\d+(\\.\\d+)?m(1080|720)?", "") // 清洗如 4M1080, 2.5M1080, 8M
+                   .replaceAll("(1080|720|576|4k|2k)(p|i)?", "")  // 清洗如 1080P, 720, 576, 4K
+                   .replaceAll("(hevc|h265|h264|avc)", "")
+                   .trim();
     }
 
     private static void closeQuietly(InputStream is) {

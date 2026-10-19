@@ -141,6 +141,11 @@ public class M3uParser {
             String line;
             String currentGroup = "其他频道";
             String currentName = "";
+            String globalCatchup = null;
+            String globalCatchupSource = null;
+            String currentCatchup = null;
+            String currentCatchupSource = null;
+            String currentTvgId = null;
             int channelCounter = 1;
 
             while ((line = reader.readLine()) != null) {
@@ -149,16 +154,31 @@ public class M3uParser {
                     continue;
                 }
 
+                if (line.startsWith("#EXTM3U")) {
+                    globalCatchup = parseAttribute(line, "catchup");
+                    globalCatchupSource = parseAttribute(line, "catchup-source");
+                    continue;
+                }
+
                 if (line.startsWith("#EXTINF:")) {
-                    // 解析分组 group-title
-                    String groupTitleKey = "group-title=\"";
-                    int groupStartIndex = line.indexOf(groupTitleKey);
-                    if (groupStartIndex != -1) {
-                        groupStartIndex += groupTitleKey.length();
-                        int groupEndIndex = line.indexOf("\"", groupStartIndex);
-                        if (groupEndIndex != -1) {
-                            currentGroup = line.substring(groupStartIndex, groupEndIndex);
-                        }
+                    String group = parseAttribute(line, "group-title");
+                    if (group != null && !group.isEmpty()) {
+                        currentGroup = group;
+                    }
+
+                    currentTvgId = parseAttribute(line, "tvg-id");
+                    if (currentTvgId == null) {
+                        currentTvgId = parseAttribute(line, "tvg-name");
+                    }
+
+                    currentCatchup = parseAttribute(line, "catchup");
+                    if (currentCatchup == null) {
+                        currentCatchup = globalCatchup;
+                    }
+
+                    currentCatchupSource = parseAttribute(line, "catchup-source");
+                    if (currentCatchupSource == null) {
+                        currentCatchupSource = globalCatchupSource;
                     }
 
                     // 解析频道名称
@@ -188,19 +208,40 @@ public class M3uParser {
                             groupedChannels.get(currentGroup).add(channel);
                         }
 
-                        // 1. 所有的源（包括 /PLTV/ 和 /TVOD/）都作为可用的直播线路多线路容灾，避免线路缺失
-                        if (!channel.getLiveUrls().contains(playUrl)) {
-                            channel.getLiveUrls().add(playUrl);
+                        if (currentTvgId != null && (channel.getEpgId() == null || channel.getEpgId().isEmpty())) {
+                            channel.setEpgId(currentTvgId);
+                        }
+                        if (currentCatchup != null && channel.getCatchupType() == null) {
+                            channel.setCatchupType(currentCatchup);
+                        }
+                        if (currentCatchupSource != null && channel.getCatchupSource() == null) {
+                            channel.setCatchupSource(currentCatchupSource);
                         }
 
-                        // 2. 如果包含 /TVOD/ 时移协议，同时收集到回看线路中
+                        // 区分普通直播流与纯 TVOD 时移流
                         if (playUrl.contains("/TVOD/")) {
+                            // 纯 TVOD 源仅作为回看线路备选，避免直播被错误切到 TVOD 导致黑屏
                             if (!channel.getTvodUrls().contains(playUrl)) {
                                 channel.getTvodUrls().add(playUrl);
+                            }
+                        } else {
+                            // 普通直播源
+                            if (!channel.getLiveUrls().contains(playUrl)) {
+                                channel.getLiveUrls().add(playUrl);
+                            }
+                            // 如果包含 /PLTV/，自动为其构建配套的 TVOD 回看源
+                            if (playUrl.contains("/PLTV/")) {
+                                String tvodDerived = playUrl.replace("/PLTV/", "/TVOD/");
+                                if (!channel.getTvodUrls().contains(tvodDerived)) {
+                                    channel.getTvodUrls().add(tvodDerived);
+                                }
                             }
                         }
                     }
                     currentName = ""; // 重置
+                    currentCatchup = null;
+                    currentCatchupSource = null;
+                    currentTvgId = null;
                 }
             }
 
@@ -223,6 +264,23 @@ public class M3uParser {
                 } catch (IOException ignored) {}
             }
         }
+    }
+
+    /**
+     * 从 EXTINF 等标记行中提取指定属性值
+     */
+    private static String parseAttribute(String line, String key) {
+        if (line == null || key == null) return null;
+        String pattern = key + "=\"";
+        int start = line.indexOf(pattern);
+        if (start != -1) {
+            start += pattern.length();
+            int end = line.indexOf("\"", start);
+            if (end != -1) {
+                return line.substring(start, end);
+            }
+        }
+        return null;
     }
 
     /**
@@ -285,15 +343,20 @@ public class M3uParser {
                                 continue;
                             }
 
-                            // 1. 所有的源都作为可用的直播线路
-                            if (!channel.getLiveUrls().contains(playUrl)) {
-                                channel.getLiveUrls().add(playUrl);
-                            }
-
-                            // 2. 如果包含 /TVOD/ 时移协议，收集到回看线路中
+                            // 区分普通直播流与纯 TVOD 时移流
                             if (playUrl.contains("/TVOD/")) {
                                 if (!channel.getTvodUrls().contains(playUrl)) {
                                     channel.getTvodUrls().add(playUrl);
+                                }
+                            } else {
+                                if (!channel.getLiveUrls().contains(playUrl)) {
+                                    channel.getLiveUrls().add(playUrl);
+                                }
+                                if (playUrl.contains("/PLTV/")) {
+                                    String tvodDerived = playUrl.replace("/PLTV/", "/TVOD/");
+                                    if (!channel.getTvodUrls().contains(tvodDerived)) {
+                                        channel.getTvodUrls().add(tvodDerived);
+                                    }
                                 }
                             }
                         }
@@ -323,11 +386,22 @@ public class M3uParser {
     }
 
     /**
-     * 智能重排频道下的直播线路（高清晰度 PLTV 优先，老电视 H.265 沉底）
+     * 智能重排频道下的直播线路（高清晰度 PLTV 优先，老电视 H.265 沉底，空源保底容灾）
      */
     private static void sortChannels(List<Channel> allChannels) {
         for (Channel channel : allChannels) {
-            final List<String> urls = channel.getLiveUrls();
+            List<String> urls = channel.getLiveUrls();
+            // 如果仅有 TVOD 线路没有单独直播源，尝试将 TVOD 转换为常规直播流作为保底
+            if (urls.isEmpty() && !channel.getTvodUrls().isEmpty()) {
+                for (String tvod : channel.getTvodUrls()) {
+                    if (tvod.contains("/TVOD/")) {
+                        urls.add(tvod.replace("/TVOD/", "/PLTV/"));
+                    } else {
+                        urls.add(tvod);
+                    }
+                }
+            }
+
             if (urls.size() > 1) {
                 java.util.Collections.sort(urls, new java.util.Comparator<String>() {
                     @Override
@@ -345,12 +419,12 @@ public class M3uParser {
                         // 老电视 SDK_INT <= 22（Android 5.1及以下），对 H.265/HEVC 加大权重值使其沉底
                         if (android.os.Build.VERSION.SDK_INT <= 22) {
                             if (isH265) {
-                                return isTvod ? 4 : 3;
+                                return isTvod ? 5 : 4;
                             } else {
-                                return isTvod ? 2 : 1;
+                                return isTvod ? 3 : 1;
                             }
                         } else {
-                            return isTvod ? 2 : 1;
+                            return isTvod ? 3 : 1;
                         }
                     }
                 });

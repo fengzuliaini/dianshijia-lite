@@ -11,4 +11,6 @@ public class CatchupProgram {
     public long beginTimeMs;    // 开始时间戳 (毫秒)
     public long endTimeMs;      // 结束时间戳 (毫秒)
     public String programName;  // 纯节目名称，例如："新闻联播"
+    public String dateKey;      // 所属日期标识，例如："2026-10-19"
+    public String dateDisplay;  // 所属日期显示，例如："今天 10-19" 或 "周一 10-19"
 }
